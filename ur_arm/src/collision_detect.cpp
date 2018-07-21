@@ -39,6 +39,7 @@ int main(int argc, char **argv)
   while(ros::ok())
   {
       collision_pub.publish(exTorque);
+      usleep(40000);
   }
   return 0;
 }
