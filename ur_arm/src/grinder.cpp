@@ -33,7 +33,8 @@ geometry_msgs::Twist velStop;
 bool collisionHappen = false;
 bool rule = false;// the collision judging rule.
 ur_arm::Joints torque;
-double collisionTorque =10;
+double collisionTorque1 = 1;
+double collisionTorque2 = 0.9;
 
 // Function definition
 void recordJointStateToTxt(sensor_msgs::JointState curState);
@@ -84,7 +85,7 @@ int main(int argc, char **argv)
   // Get 3 key position by collision detect.
   while(!rule1)
   {
-      rule1 = ((torque.shoulder>collisionTorque) || (torque.elbow>collisionTorque)||(torque.base>10));
+      rule1 = ((torque.shoulder>collisionTorque1) || (torque.elbow>collisionTorque2));
   }
   startPoint = curPos;// start position
   vel_pub.publish(velBack);
@@ -107,7 +108,7 @@ int main(int argc, char **argv)
   sleep(1);
   while(!rule3)
   {
-      rule3 = ((torque.shoulder>collisionTorque) || (torque.elbow>collisionTorque)||(torque.base>10));
+      rule3 = ((torque.shoulder>collisionTorque1) || (torque.elbow>collisionTorque2));
   }
   endPoint = curPos;// end position
   vel_pub.publish(velBack);

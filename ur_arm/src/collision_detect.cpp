@@ -106,11 +106,8 @@ ur_arm::Joints computeExTorque(std::vector<double> curPos, std::vector<double> c
     double l1 = 0.425;
     double g = 9.793;
     double K = 10;
-    double K2 = 10;
+    double K2 = 1;
     double dt = 0.008;
-//    double terminalTool = 1.5;//1.38
-//    double pi = 3.14159265;
-    double max = 0;
 
     pos2(0,0) = curPos[1];
     pos2(1,0) = curPos[2];
@@ -140,22 +137,12 @@ ur_arm::Joints computeExTorque(std::vector<double> curPos, std::vector<double> c
     torqueFric(1,0) = u1_2*curVel[2] + u2_2*signed(reZero(curVel[2]));
 
     torque.base = fabs(K2*curEff[0]);
-//    torque.shoulder = fabs(K2*(exTorque2(0,0) - torqueFric(0,0)) + terminalTool*g*(l1*cos(curPos[1]) + l2*cos(curPos[1]+curPos[2]) + l3*cos(curPos[1]+curPos[2]+curPos[3]+pi/2)));
-//    torque.elbow = fabs(K2*(exTorque2(1,0) - torqueFric(1,0)) + terminalTool*g*(l2*cos(curPos[1]+curPos[2]) + l3*cos(curPos[1]+curPos[2]+curPos[3]+pi/2)));
     torque.shoulder = fabs(K2*(exTorque2(0,0) - torqueFric(0,0)));
     torque.elbow = fabs(K2*(exTorque2(1,0) - torqueFric(1,0)));
-//    if (fabs(torque.shoulder) > max)
-//    {
-//        max = fabs(torque.shoulder);
-//    }
-//    else if(fabs(torque.elbow) > max)
-//    {
-//        max = fabs(torque.elbow);
-//    }
     torque.wrist1 = 0;
     torque.wrist2 = 0;
     torque.wrist3 = 0;
-    ROS_INFO("External Torque of base =  [%lf].",torque.base);
+    ROS_INFO("External Torque of elbow =  [%lf].",torque.elbow);
 
     return torque;
 }
