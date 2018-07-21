@@ -33,8 +33,8 @@ geometry_msgs::Twist velStop;
 bool collisionHappen = false;
 bool rule = false;// the collision judging rule.
 ur_arm::Joints torque;
-double collisionTorque1 = 1;
-double collisionTorque2 = 0.9;
+double collisionTorque1 = 0.95;
+double collisionTorque2 = 0.85;
 
 // Function definition
 void recordJointStateToTxt(sensor_msgs::JointState curState);
@@ -134,13 +134,9 @@ int main(int argc, char **argv)
 
   pycodeGenerate(startPoint,endPoint);
   fout3.close();
-  ROS_INFO("I have generated the grinderWithDetect.py file.");
- // system("rosrun ur_modern_driver grinderWithDetect.py");
-// Should I have to sleep some time here?
-
-  while(ros::ok()){};
   fout1.close();
   fout2.close();
+  ROS_INFO("I have generated the grinderWithDetect.py file.");
 
   return 0;
 }

@@ -32,14 +32,15 @@ int main(int argc, char **argv)
   ros::AsyncSpinner spinner(1);
   spinner.start();
 
+  setInitialExTorque();
   ros::Publisher collision_pub = n.advertise<ur_arm::Joints>("/external_torque",1);
   ros::Subscriber monitor = n.subscribe<sensor_msgs::JointState>("/joint_states", 1, getCurRobotState);// Subscribing the joint_states for collision compute.
   usleep(400000);//Leave 0.4s for building the publisher and subscriber
-  setInitialExTorque();
+
   while(ros::ok())
   {
       collision_pub.publish(exTorque);
-      usleep(40000);
+      usleep(8000);
   }
   return 0;
 }
@@ -139,9 +140,9 @@ ur_arm::Joints computeExTorque(std::vector<double> curPos, std::vector<double> c
     torque.base = fabs(K2*curEff[0]);
     torque.shoulder = fabs(K2*(exTorque2(0,0) - torqueFric(0,0)));
     torque.elbow = fabs(K2*(exTorque2(1,0) - torqueFric(1,0)));
-    torque.wrist1 = 0;
-    torque.wrist2 = 0;
-    torque.wrist3 = 0;
+    torque.wrist1 = fabs(K2*curEff[3]);
+    torque.wrist2 = fabs(K2*curEff[4]);
+    torque.wrist3 = fabs(K2*curEff[5]);
     ROS_INFO("External Torque of elbow =  [%lf].",torque.elbow);
 
     return torque;
