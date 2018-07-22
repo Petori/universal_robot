@@ -135,8 +135,8 @@ ur_arm::Joints computeExTorque(std::vector<double> curPos, std::vector<double> c
     A = A + deltaA;
     exTorque2 = K*(A - Mq*vel2);
 
-    torqueFric(0,0) = u1_1*curVel[1] + u2_1*signsign(reZeroForVel(curVel[1]));
-    torqueFric(1,0) = u1_2*curVel[2] + u2_2*signsign(reZeroForVel(curVel[2]));
+    torqueFric(0,0) = u1_1*curVel[1] + u2_1*signsign(curVel[1]);
+    torqueFric(1,0) = u1_2*curVel[2] + u2_2*signsign(curVel[2]);
 
     torque.base = fabs(K2*curEff[0]);
     torque.shoulder = fabs(K2*(exTorque2(0,0) - torqueFric(0,0)));
