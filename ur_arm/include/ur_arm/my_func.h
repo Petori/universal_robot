@@ -19,6 +19,17 @@ using std::vector;
 
 double pi = 3.1415926;
 
+double signsign(double x)
+{
+        if (x > 1e-10)
+                x = 1;
+        else if (x < -1e-10)
+                x = -1;
+        else
+                x = 0;
+        return x;
+}
+
 void hi()
 {
     cout<< "Hello!" << endl;
@@ -28,6 +39,15 @@ double reZero(double x)
 {
     // fabs(*)<1e-5 is the best , do not change it.
     if (fabs(x)<1e-3)
+    {
+        x = 0;
+    }
+    return x;
+}
+
+double reZeroForVel(double x)
+{
+    if (fabs(x)<0.02)
     {
         x = 0;
     }

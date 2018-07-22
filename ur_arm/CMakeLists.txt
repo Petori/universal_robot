@@ -191,6 +191,11 @@ add_executable(
   parameterEstimate
   src/parameterEstimate.cpp
 )
+add_executable(
+  collision_detect_simple
+  src/collision_detect_simple.cpp
+)
+
 
 target_link_libraries(
   node
@@ -216,6 +221,11 @@ target_link_libraries(
   parameterEstimate
   ${catkin_LIBRARIES}
 )
+target_link_libraries(
+  collision_detect_simple
+  ${catkin_LIBRARIES}
+)
+
 
 add_dependencies(
   node
@@ -239,6 +249,10 @@ add_dependencies(
 )
 add_dependencies(
   parameterEstimate
+  ${catkin_EXPORTED_TARGETS}
+)
+add_dependencies(
+  collision_detect_simple
   ${catkin_EXPORTED_TARGETS}
 )
 

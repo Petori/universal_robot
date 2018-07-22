@@ -11,7 +11,6 @@
 #include <sensor_msgs/JointState.h>
 #include <std_msgs/Int8.h>
 #include "ur_arm/Joints.h"
-#include "ur_arm/my_func.h"
 #include <unistd.h>   // for function usleep(microseconds)
 
 // Global Variables
@@ -75,15 +74,6 @@ ur_arm::Joints computeExTorque(std::vector<double> curPos, std::vector<double> c
 {
     // toliaezi give the curEff to exTorque
     ur_arm::Joints torque;
-    // the column vector definition
-    Eigen::MatrixXf jointTorque2(2,1);
-    Eigen::MatrixXf vel2(2,1);
-    Eigen::MatrixXf pos2(2,1);
-    Eigen::MatrixXf deltaA(2,1);
-    Eigen::MatrixXf torqueFric(2,1);
-    Eigen::MatrixXf Cq(2,2);
-    Eigen::MatrixXf Gq(2,1);
-    Eigen::MatrixXf Mq(2,2);
 //    // the parameter of ur5
 //    double m1 = 0.8009;
 //    double m2 = 0.5515;
@@ -103,48 +93,39 @@ ur_arm::Joints computeExTorque(std::vector<double> curPos, std::vector<double> c
     double u2_1=0.5286;
     double u1_2=0.6702;
     double u2_2=0.6448;
-
-
     double l1 = 0.425;
     double g = 9.793;
-    double K = 10;
-    double K2 = 1;
-    double dt = 0.008;
 
-    pos2(0,0) = curPos[1];
-    pos2(1,0) = curPos[2];
-    vel2(0,0) = curVel[1];
-    vel2(1,0) = curVel[2];
-    jointTorque2(0,0) = curEff[1];
-    jointTorque2(1,0) = curEff[2];
+    double q2,q3,dq2,dq3,r_dq2,r_dq3;
 
-    Mq(0,0) = m1*l1_star*l1_star + m2*(l1*l1+l1_star*l1_star+2*l1*l1_star*cos(pos2(1,0)));
-    Mq(0,1) = m2*(l2_star*l2_star+l1*l1_star*cos(pos2(1,0)));
-    Mq(1,0) = m2*(l2_star*l2_star+l1*l1_star*cos(pos2(1,0)));
-    Mq(1,1) = m2*l2_star*l2_star;
+    q2 = curPos[1];
+    q3 = curPos[2];
 
-    Cq(0,0) = -m2*l1*l2_star*sin(pos2(1,0))*vel2(1,0);
-    Cq(0,1) = -m2*l1*l2_star*sin(pos2(1,0))*(vel2(0,0)+vel2(1,0));
-    Cq(1,0) = -m2*l1*l2_star*sin(pos2(1,0))*(-vel2(0,0));
-    Cq(1,1) = 0;
+    dq2 = curVel[1];
+    dq3 = curVel[2];
 
-    Gq(0,0) = -(m1*l1_star+m2*l1)*g*cos(pos2(0,0)) - m2*g*l2_star*cos(pos2(0,0)+pos2(1,0));
-    Gq(1,0) = -m2*g*l2_star*cos(pos2(0,0)+pos2(1,0));
+    r_dq2 = reZeroForVel(curVel[1]);
+    r_dq3 = reZeroForVel(curPos[2]);
 
-    deltaA = (jointTorque2 + Cq.transpose()*vel2 - Gq - exTorque2) * dt;
-    A = A + deltaA;
-    exTorque2 = K*(A - Mq*vel2);
+    torque.shoulder = fabs(-m1*g*l1_star*cos(q2) - m2*g*l1*cos(q2) - m2*g*l2_star*cos(q2 + q3) + u1_1*dq2 + u2_1*signed(r_dq2));
+    torque.elbow = fabs(-m2*g*l2_star*cos(q2+q3) + u1_2*dq3 + u2_2*signed(r_dq3));
 
-    torqueFric(0,0) = u1_1*curVel[1] + u2_1*signsign(reZeroForVel(curVel[1]));
-    torqueFric(1,0) = u1_2*curVel[2] + u2_2*signsign(reZeroForVel(curVel[2]));
+    torque.base = fabs(curEff[0]);
+    torque.wrist1 = fabs(curEff[3]);
+    torque.wrist2 = fabs(curEff[4]);
+    torque.wrist3 = fabs(curEff[5]);
 
-    torque.base = fabs(K2*curEff[0]);
-    torque.shoulder = fabs(K2*(exTorque2(0,0) - torqueFric(0,0)));
-    torque.elbow = fabs(K2*(exTorque2(1,0) - torqueFric(1,0)));
-    torque.wrist1 = fabs(K2*curEff[3]);
-    torque.wrist2 = fabs(K2*curEff[4]);
-    torque.wrist3 = fabs(K2*curEff[5]);
     ROS_INFO("External Torque of elbow =  [%lf].",torque.elbow);
 
     return torque;
+}
+
+double reZeroForVel(double x)
+{
+    // vel noise is 0.02 rad/s.
+    if (fabs(x)<0.02)
+    {
+        x = 0;
+    }
+    return x;
 }
