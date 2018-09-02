@@ -28,8 +28,9 @@ geometry_msgs::Twist velStop;
 bool collisionHappen = false;
 bool rule = false;// the collision judging rule.
 ur_arm::Joints torque;
-double collisionTorque1 = 0.3;
-double collisionTorque2 = 0.3;
+double collisionTorque0 = 0.3;
+double collisionTorque1 = 0.8;
+double collisionTorque2 = 0.8;
 
 // Function definition
 void jointStateGet(sensor_msgs::JointState curState);
@@ -77,11 +78,12 @@ int main(int argc, char **argv)
       vel_pub.publish(velFoward);
       while(!rule&&ros::ok())
       {
-          rule = ((torque.shoulder>collisionTorque1) || (torque.elbow>collisionTorque2));
+          rule = ((torque.base>collisionTorque0) ||(torque.shoulder>collisionTorque1) || (torque.elbow>collisionTorque2));
       }
       recordJoints(curPos);
+      ROS_INFO("I got [%d] point.",i+1);
       vel_pub.publish(velBack);
-      sleep(5);
+      sleep(3);
       vel_pub.publish(velMove);
       sleep(3);
       vel_pub.publish(velStop);
@@ -146,7 +148,7 @@ void setVelMove()
     geometry_msgs::Vector3 angular;
     double vx,vy,vz;
     double wx,wy,wz;
-    vx = 0.02;
+    vx = -0.005;
     vy = 0;
     vz = 0;
     wx = 0;

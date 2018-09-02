@@ -144,7 +144,7 @@ ur_arm::Joints computeExTorque(std::vector<double> curPos, std::vector<double> c
     torque.wrist1 = fabs(K2*curEff[3]);
     torque.wrist2 = fabs(K2*curEff[4]);
     torque.wrist3 = fabs(K2*curEff[5]);
-    ROS_INFO("External Torque of elbow =  [%lf].",torque.elbow);
+    ROS_INFO("External Torque of base =  [%lf].",torque.base);
 
     return torque;
 }
