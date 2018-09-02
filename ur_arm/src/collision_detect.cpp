@@ -85,24 +85,24 @@ ur_arm::Joints computeExTorque(std::vector<double> curPos, std::vector<double> c
     Eigen::MatrixXf Gq(2,1);
     Eigen::MatrixXf Mq(2,2);
 //    // the parameter of ur5
-//    double m1 = 0.8009;
-//    double m2 = 0.5515;
-//    double l1_star = 0.1320;
-//    double l2_star = 0.2926;
-//    double u1_1=0.2973;
-//    double u2_1=0.6849;
-//    double u1_2=0.5823;
-//    double u2_2=0.6754;
+    double m1 = 0.8009;
+    double m2 = 0.5515;
+    double l1_star = 0.1320;
+    double l2_star = 0.2926;
+    double u1_1=0.2973;
+    double u2_1=0.6849;
+    double u1_2=0.5823;
+    double u2_2=0.6754;
 
 //    // the parameter with grinder
-    double m1 = 0.4254;
-    double m2 = 0.3755;
-    double l1_star = 0.5689;
-    double l2_star = 0.5818;
-    double u1_1=0.5822;
-    double u2_1=0.5286;
-    double u1_2=0.6702;
-    double u2_2=0.6448;
+//    double m1 = 0.4254;
+//    double m2 = 0.3755;
+//    double l1_star = 0.5689;
+//    double l2_star = 0.5818;
+//    double u1_1=0.5822;
+//    double u2_1=0.5286;
+//    double u1_2=0.6702;
+//    double u2_2=0.6448;
 
 
     double l1 = 0.425;

@@ -195,6 +195,10 @@ add_executable(
   collision_detect_simple
   src/collision_detect_simple.cpp
 )
+add_executable(
+  grinder_newmethod
+  src/grinder_newmethod.cpp
+)
 
 
 target_link_libraries(
@@ -225,7 +229,10 @@ target_link_libraries(
   collision_detect_simple
   ${catkin_LIBRARIES}
 )
-
+target_link_libraries(
+  grinder_newmethod
+  ${catkin_LIBRARIES}
+)
 
 add_dependencies(
   node
@@ -255,7 +262,10 @@ add_dependencies(
   collision_detect_simple
   ${catkin_EXPORTED_TARGETS}
 )
-
+add_dependencies(
+  grinder_newmethod
+  ${catkin_EXPORTED_TARGETS}
+)
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
 ## target back to the shorter version for ease of user use
