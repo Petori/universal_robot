@@ -14,13 +14,13 @@ from math import pi
 
 JOINT_NAMES = ['shoulder_pan_joint', 'shoulder_lift_joint', 'elbow_joint',
                'wrist_1_joint', 'wrist_2_joint', 'wrist_3_joint']
-Q1 = [0,-1.57,0,-2.5,-1.59,-0.24]
-Q2 = [0,-1.57,-0.4,-2.5,-1.59,-0.24]
-Q3 = [0,-1.57,-0.8,-2.5,-1.59,-0.24]
-Q4 = [0,-1.57,-1.2,-2.5,-1.59,-0.24]
-Q5 = [0,-1.57,-1.6,-2.5,-1.59,-0.24]
-Q6 = [0,-1.57,-2.0,-2.5,-1.59,-0.24]
-Q7 = [0,-1.57,0,-2.5,-1.59,-0.24]
+Q1 = [0,-1.57,0,-1.57,0,0]
+Q2 = [0,-1.57,-0.4,-1.57,0,0]
+Q3 = [0,-1.57,-0.8,-1.57,0,0]
+Q4 = [0,-1.57,-1.2,-1.57,0,0]
+Q5 = [0,-1.57,-1.6,-1.57,0,0]
+Q6 = [0,-1.57,-2.0,-1.57,0,0]
+Q7 = [0,-1.57,0,-1.57,0,0]
     
 client = None
 
@@ -58,13 +58,13 @@ def main():
         print "Waiting for server..."
         client.wait_for_server()
         print "Connected to server"
-        child1 = subprocess.Popen('rostopic echo /joint_states >1.txt',shell=True)
+        child1 = subprocess.Popen('rostopic echo /joint_states >constantspeed2.txt',shell=True)
         move()
         print "Trajectory finished"
         time.sleep(0.5)
-        child2 = subprocess.Popen('cp 1.txt data/1.txt',shell=True)
+        child2 = subprocess.Popen('cp constantspeed2.txt data/constantspeed2.txt',shell=True)
         time.sleep(0.5)
-        child3 = subprocess.Popen('rm 1.txt',shell=True)
+        child3 = subprocess.Popen('rm constantspeed2.txt',shell=True)
         time.sleep(0.5)
         if True:
             child1.kill()
