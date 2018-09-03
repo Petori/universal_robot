@@ -14,13 +14,13 @@ from math import pi
 
 JOINT_NAMES = ['shoulder_pan_joint', 'shoulder_lift_joint', 'elbow_joint',
                'wrist_1_joint', 'wrist_2_joint', 'wrist_3_joint']
-Q1 = [0,-1.2,2,-1.57,0,0]
-Q2 = [0.5,-1.2,2,-1.57,0,0]
-Q3 = [1,-1.2,2,-1.57,0,0]
-Q4 = [1.5,-1.2,2,-1.57,0,0]
-Q5 = [2,-1.2,2,-1.57,0,0]
-Q6 = [2.5,-1.2,2,-1.57,0,0]
-Q7 = [0,-1.2,2,-1.57,0,0]
+Q1 = [0,-1.85,-2,-2.5,0,0]
+Q2 = [0.5,-1.85,-2,-2.5,0,0]
+Q3 = [1,-1.85,-2,-2.5,0,0]
+Q4 = [1.5,-1.85,-2,-2.5,0,0]
+Q5 = [2,-1.85,-2,-2.5,0,0]
+Q6 = [2.5,-1.85,-2,-2.5,0,0]
+Q7 = [0,-1.57,0,-1.57,0,0]
    
 client = None
 
@@ -34,13 +34,13 @@ def move():
         joints_pos = joint_states.position
         g.trajectory.points = [
             JointTrajectoryPoint(positions=joints_pos, velocities=[0]*6, time_from_start=rospy.Duration(0.0)),
-            JointTrajectoryPoint(positions=Q1, velocities=[0.5,0,0,0,0,0], time_from_start=rospy.Duration(1)),
-            JointTrajectoryPoint(positions=Q2, velocities=[0.5,0,0,0,0,0], time_from_start=rospy.Duration(2)),
-            JointTrajectoryPoint(positions=Q3, velocities=[0.5,0,0,0,0,0], time_from_start=rospy.Duration(3)),
-            JointTrajectoryPoint(positions=Q4, velocities=[0.5,0,0,0,0,0], time_from_start=rospy.Duration(4)),
-            JointTrajectoryPoint(positions=Q5, velocities=[0.5,0,0,0,0,0], time_from_start=rospy.Duration(5)),
-            JointTrajectoryPoint(positions=Q6, velocities=[0.5,0,0,0,0,0], time_from_start=rospy.Duration(6)),
-            JointTrajectoryPoint(positions=Q7, velocities=[0,0,0,0,0,0], time_from_start=rospy.Duration(8))]
+            JointTrajectoryPoint(positions=Q1, velocities=[0.5,0,0,0,0,0], time_from_start=rospy.Duration(4)),
+            JointTrajectoryPoint(positions=Q2, velocities=[0.5,0,0,0,0,0], time_from_start=rospy.Duration(5)),
+            JointTrajectoryPoint(positions=Q3, velocities=[0.5,0,0,0,0,0], time_from_start=rospy.Duration(6)),
+            JointTrajectoryPoint(positions=Q4, velocities=[0.5,0,0,0,0,0], time_from_start=rospy.Duration(7)),
+            JointTrajectoryPoint(positions=Q5, velocities=[0.5,0,0,0,0,0], time_from_start=rospy.Duration(8)),
+            JointTrajectoryPoint(positions=Q6, velocities=[0.5,0,0,0,0,0], time_from_start=rospy.Duration(9)),
+            JointTrajectoryPoint(positions=Q7, velocities=[0,0,0,0,0,0], time_from_start=rospy.Duration(14))]
         client.send_goal(g)
         client.wait_for_result()
     except KeyboardInterrupt:
