@@ -47,7 +47,7 @@ double reZero(double x)
 
 double reZeroForVel(double x)
 {
-    if (fabs(x)<0.02)
+    if (fabs(x)<0.03)
     {
         x = 0;
     }

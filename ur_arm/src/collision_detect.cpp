@@ -19,9 +19,13 @@ ur_arm::Joints exTorque;
 Eigen::MatrixXf exTorque2(2,1);
 Eigen::MatrixXf A(2,1);
 double num = 0;
+double torbase_avg = 0;
+double torshoulder_avg = 0;
+double torelbow_avg = 0;
 double torWrist1_avg = 0;
 double torWrist2_avg = 0;
 double torWrist3_avg = 0;
+double smoothlevel = 11;
 static double delta_tor = 0.3;
 
 // Function definition
@@ -96,15 +100,26 @@ ur_arm::Joints computeExTorque(std::vector<double> curPos, std::vector<double> c
     Eigen::MatrixXf Cq(2,2);
     Eigen::MatrixXf Gq(2,1);
     Eigen::MatrixXf Mq(2,2);
+
+//    // new parameter of ur5
+    double m1 = 2.5784;
+    double m2 = 2.6595;
+    double l1_star = 0.5176;
+    double l2_star = 0.4414;
+    double u1_1=1.4725;
+    double u2_1=5.3404;
+    double u1_2=4.5720;
+    double u2_2=4.7128;
+
 //    // the parameter of ur5
-    double m1 = 0.8009;
-    double m2 = 0.5515;
-    double l1_star = 0.1320;
-    double l2_star = 0.2926;
-    double u1_1=0.2973;
-    double u2_1=0.6849;
-    double u1_2=0.5823;
-    double u2_2=0.6754;
+//    double m1 = 0.8009;
+//    double m2 = 0.5515;
+//    double l1_star = 0.1320;
+//    double l2_star = 0.2926;
+//    double u1_1=0.2973;
+//    double u2_1=0.6849;
+//    double u1_2=0.5823;
+//    double u2_2=0.6754;
 
 //    // the parameter with grinder
 //    double m1 = 0.4254;
@@ -122,13 +137,13 @@ ur_arm::Joints computeExTorque(std::vector<double> curPos, std::vector<double> c
     double K = 10;
     // k2 has no sense
     double K2 = 1;
-    // k3 = torque/eff;
-    double K3 = 7.4;
+//    // k3 = torque/eff;
+//    double K3 = 7.4;
     double dt = 0.008;
     double torqueFricBase;
     // the fric factor of joint_base.
-    double ub_1 = 0;
-    double ub_2 = 0;
+    double ub_1 = 4.6243;
+    double ub_2 = 5.5008;
 
     // caculate the external_torque of wrist1,wrist2,wrist3
     num++;
@@ -144,11 +159,31 @@ ur_arm::Joints computeExTorque(std::vector<double> curPos, std::vector<double> c
     if(fabs(eff[5]-torWrist3_avg)<delta_tor)
         torWrist3_avg = (torWrist3_avg*(num-1) + eff[5])/num;
 
+    // remove the noise of the torque of base,shoulder and elbow
+    if(num>smoothlevel)
+    {
+        eff[0] = (eff[0] + torbase_avg*(smoothlevel-1))/smoothlevel;
+        eff[1] = (eff[1] + torshoulder_avg*(smoothlevel-1))/smoothlevel;
+        eff[2] = (eff[2] + torbase_avg*(smoothlevel-1))/smoothlevel;
+    }
+    else
+    {
+        eff[0] = (eff[0] + torbase_avg*(num-1))/num;
+        eff[1] = (eff[1] + torshoulder_avg*(num-1))/num;
+        eff[2] = (eff[2] + torbase_avg*(num-1))/num;
+    }
+    torbase_avg = eff[0];
+    torshoulder_avg = eff[1];
+    torelbow_avg = eff[2];
+
     // caculate the external_torque of base
     torqueFricBase = ub_1*vel[0] + ub_2*signsign(vel[0]);
     torque.base = eff[0] - torqueFricBase;
 
     // caculate the external_torque of shoulder and elbow
+    vel[1] = reZeroForVel(vel[1]);
+    vel[2] = reZeroForVel(vel[2]);
+
     pos2(0,0) = pos[1];
     pos2(1,0) = pos[2];
     vel2(0,0) = vel[1];
@@ -194,7 +229,7 @@ ur_arm::Joints computeExTorque(std::vector<double> curPos, std::vector<double> c
 
     Jacob = cacJacob(pos);
     midMatrix = Jacob.transpose();
-    effectorF = K3*(midMatrix.inverse()*jointTorque6);
+    effectorF = midMatrix.inverse()*jointTorque6;
 
     torque.base = effectorF(0,0);
     torque.shoulder = effectorF(1,0);
