@@ -143,20 +143,13 @@ double thetaMod(double x)
     }
 }
 
-vector<double> deltaVelCacByJacob(std::vector<double> pos, std::vector<double> cartesianDeltaVel)
+Eigen::MatrixXf cacJacob(std::vector<double> pos)
 {
     double c1,c2,c3,c4,c5,c6,s1,s2,s3,s4,s5,s6;
     double d1=0.0892,d4=0.109,d5=0.093,d6=0.082;
     double a2=-0.425,a3=-0.39243;
     Eigen::MatrixXf Jacob(6,6);
-    Eigen::MatrixXf cdvel(6,1);
-    Eigen::MatrixXf velResult(6,1);
-    std::vector<double> deltaVel;
-
-    for (int i=0;i<6;i++)
-    {
-        cdvel(i,0) = cartesianDeltaVel[i];
-    }
+    Jacob = Eigen::MatrixXf::Zero(6,6);
 
     c1 = reZero(cos(pos[0]));
     c2 = reZero(cos(pos[1]));
@@ -171,8 +164,6 @@ vector<double> deltaVelCacByJacob(std::vector<double> pos, std::vector<double> c
     s4 = reZero(sin(pos[3]));
     s5 = reZero(sin(pos[4]));
     s6 = reZero(sin(pos[5]));
-
-    Jacob = Eigen::MatrixXf::Zero(6,6);
 
     Jacob(0,0) = c1*(d4 + c5*d6) - s1*(a2*c2 + c2*(s3*(c4*d5 + d6*s4*s5) + a3*c3 + c3*(d5*s4 - c4*d6*s5)) - s2*(s3*(d5*s4 - c4*d6*s5) + a3*s3 - c3*(c4*d5 + d6*s4*s5)));
     Jacob(0,1) = -c1*(a2*s2 + s2*(s3*(c4*d5 + d6*s4*s5) + a3*c3 + c3*(d5*s4 - c4*d6*s5)) + c2*(s3*(d5*s4 - c4*d6*s5) + a3*s3 - c3*(c4*d5 + d6*s4*s5)));
@@ -215,6 +206,26 @@ vector<double> deltaVelCacByJacob(std::vector<double> pos, std::vector<double> c
     Jacob(5,3) = 0;
     Jacob(5,4) = s4*(c2*s3 + c3*s2) - c4*(c2*c3 - s2*s3);
     Jacob(5,5) = -s5*(c4*(c2*s3 + c3*s2) + s4*(c2*c3 - s2*s3));
+
+    return Jacob;
+}
+
+vector<double> deltaVelCacByJacob(std::vector<double> pos, std::vector<double> cartesianDeltaVel)
+{
+    double c1,c2,c3,c4,c5,c6,s1,s2,s3,s4,s5,s6;
+    double d1=0.0892,d4=0.109,d5=0.093,d6=0.082;
+    double a2=-0.425,a3=-0.39243;
+    Eigen::MatrixXf Jacob(6,6);
+    Eigen::MatrixXf cdvel(6,1);
+    Eigen::MatrixXf velResult(6,1);
+    std::vector<double> deltaVel;
+
+    for (int i=0;i<6;i++)
+    {
+        cdvel(i,0) = cartesianDeltaVel[i];
+    }
+
+    Jacob = cacJacob(pos);
 
     velResult = Jacob.inverse()*cdvel;
 

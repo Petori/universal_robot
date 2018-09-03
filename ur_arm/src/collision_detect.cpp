@@ -18,6 +18,11 @@
 ur_arm::Joints exTorque;
 Eigen::MatrixXf exTorque2(2,1);
 Eigen::MatrixXf A(2,1);
+double num = 0;
+double torWrist1_avg = 0;
+double torWrist2_avg = 0;
+double torWrist3_avg = 0;
+static double delta_tor = 0.3;
 
 // Function definition
 void getCurRobotState(sensor_msgs::JointState curState);// The callback func for subscriber"monitor", get cur pos/vel/eff values.
@@ -75,6 +80,13 @@ ur_arm::Joints computeExTorque(std::vector<double> curPos, std::vector<double> c
 {
     // toliaezi give the curEff to exTorque
     ur_arm::Joints torque;
+    std::vector<double> pos;
+    std::vector<double> vel;
+    std::vector<double> eff;
+    pos = curPos;
+    vel = curVel;
+    eff = curEff;
+
     // the column vector definition
     Eigen::MatrixXf jointTorque2(2,1);
     Eigen::MatrixXf vel2(2,1);
@@ -108,15 +120,41 @@ ur_arm::Joints computeExTorque(std::vector<double> curPos, std::vector<double> c
     double l1 = 0.425;
     double g = 9.793;
     double K = 10;
+    // k2 has no sense
     double K2 = 1;
+    // k3 = torque/eff;
+    double K3 = 7.4;
     double dt = 0.008;
+    double torqueFricBase;
+    // the fric factor of joint_base.
+    double ub_1 = 0;
+    double ub_2 = 0;
 
-    pos2(0,0) = curPos[1];
-    pos2(1,0) = curPos[2];
-    vel2(0,0) = curVel[1];
-    vel2(1,0) = curVel[2];
-    jointTorque2(0,0) = curEff[1];
-    jointTorque2(1,0) = curEff[2];
+    // caculate the external_torque of wrist1,wrist2,wrist3
+    num++;
+    torque.wrist1 = eff[3] - torWrist1_avg;
+    if(fabs(eff[3]-torWrist1_avg)<delta_tor)
+        torWrist1_avg = (torWrist1_avg*(num-1) + eff[3])/num;
+
+    torque.wrist2 = eff[4] - torWrist2_avg;
+    if(fabs(eff[4]-torWrist2_avg)<delta_tor)
+        torWrist2_avg = (torWrist2_avg*(num-1) + eff[4])/num;
+
+    torque.wrist3 = eff[5] - torWrist3_avg;
+    if(fabs(eff[5]-torWrist3_avg)<delta_tor)
+        torWrist3_avg = (torWrist3_avg*(num-1) + eff[5])/num;
+
+    // caculate the external_torque of base
+    torqueFricBase = ub_1*vel[0] + ub_2*signsign(vel[0]);
+    torque.base = eff[0] - torqueFricBase;
+
+    // caculate the external_torque of shoulder and elbow
+    pos2(0,0) = pos[1];
+    pos2(1,0) = pos[2];
+    vel2(0,0) = vel[1];
+    vel2(1,0) = vel[2];
+    jointTorque2(0,0) = eff[1];
+    jointTorque2(1,0) = eff[2];
 
     Mq(0,0) = m1*l1_star*l1_star + m2*(l1*l1+l1_star*l1_star+2*l1*l1_star*cos(pos2(1,0)));
     Mq(0,1) = m2*(l2_star*l2_star+l1*l1_star*cos(pos2(1,0)));
@@ -135,16 +173,37 @@ ur_arm::Joints computeExTorque(std::vector<double> curPos, std::vector<double> c
     A = A + deltaA;
     exTorque2 = K*(A - Mq*vel2);
 
-    torqueFric(0,0) = u1_1*curVel[1] + u2_1*signsign(curVel[1]);
-    torqueFric(1,0) = u1_2*curVel[2] + u2_2*signsign(curVel[2]);
+    torqueFric(0,0) = u1_1*vel[1] + u2_1*signsign(vel[1]);
+    torqueFric(1,0) = u1_2*vel[2] + u2_2*signsign(vel[2]);
 
-    torque.base = fabs(K2*curEff[0]);
     torque.shoulder = fabs(K2*(exTorque2(0,0) - torqueFric(0,0)));
     torque.elbow = fabs(K2*(exTorque2(1,0) - torqueFric(1,0)));
-    torque.wrist1 = fabs(K2*curEff[3]);
-    torque.wrist2 = fabs(K2*curEff[4]);
-    torque.wrist3 = fabs(K2*curEff[5]);
-    ROS_INFO("External Torque of base =  [%lf].",torque.base);
+
+    // caculate the force and torque of effector
+    Eigen::MatrixXf Jacob(6,6);
+    Eigen::MatrixXf midMatrix(6,6);
+    Eigen::MatrixXf jointTorque6(6,1);
+    Eigen::MatrixXf effectorF(6,1);
+
+    jointTorque6(0,0) = torque.base;
+    jointTorque6(1,0) = torque.shoulder;
+    jointTorque6(2,0) = torque.elbow;
+    jointTorque6(3,0) = torque.wrist1;
+    jointTorque6(4,0) = torque.wrist2;
+    jointTorque6(5,0) = torque.wrist3;
+
+    Jacob = cacJacob(pos);
+    midMatrix = Jacob.transpose();
+    effectorF = K3*(midMatrix.inverse()*jointTorque6);
+
+    torque.base = effectorF(0,0);
+    torque.shoulder = effectorF(1,0);
+    torque.elbow = effectorF(2,0);
+    torque.wrist1 = effectorF(3,0);
+    torque.wrist2 = effectorF(4,0);
+    torque.wrist3 = effectorF(5,0);
+
+    ROS_INFO("External force of x orientation is [%lf]N.",torque.base);
 
     return torque;
 }

@@ -76,6 +76,7 @@ int main(int argc, char **argv)
       ROS_INFO("Hey.");
       rule = false;
       vel_pub.publish(velFoward);
+      sleep(1);
       while(!rule&&ros::ok())
       {
           rule = ((torque.base>collisionTorque0) ||(torque.shoulder>collisionTorque1) || (torque.elbow>collisionTorque2));
