@@ -162,19 +162,19 @@ ur_arm::Joints computeExTorque(std::vector<double> curPos, std::vector<double> c
     // remove the noise of the torque of base,shoulder and elbow
     if(num>smoothlevel)
     {
-        eff[0] = (eff[0] + torbase_avg*(smoothlevel-1))/smoothlevel;
-        eff[1] = (eff[1] + torshoulder_avg*(smoothlevel-1))/smoothlevel;
-        eff[2] = (eff[2] + torbase_avg*(smoothlevel-1))/smoothlevel;
+        eff[3] = (eff[3] + torWrist1_avg*(smoothlevel-1))/smoothlevel;
+        eff[4] = (eff[4] + torWrist2_avg*(smoothlevel-1))/smoothlevel;
+        eff[5] = (eff[5] + torWrist3_avg*(smoothlevel-1))/smoothlevel;
     }
     else
     {
-        eff[0] = (eff[0] + torbase_avg*(num-1))/num;
-        eff[1] = (eff[1] + torshoulder_avg*(num-1))/num;
-        eff[2] = (eff[2] + torbase_avg*(num-1))/num;
+        eff[3] = (eff[3] + torWrist1_avg*(num-1))/num;
+        eff[4] = (eff[4] + torWrist2_avg*(num-1))/num;
+        eff[5] = (eff[5] + torWrist3_avg*(num-1))/num;
     }
-    torbase_avg = eff[0];
-    torshoulder_avg = eff[1];
-    torelbow_avg = eff[2];
+    torWrist1_avg = eff[3];
+    torWrist2_avg = eff[4];
+    torWrist3_avg = eff[5];
 
     // caculate the external_torque of base
     torqueFricBase = ub_1*vel[0] + ub_2*signsign(vel[0]);
