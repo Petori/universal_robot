@@ -147,34 +147,22 @@ ur_arm::Joints computeExTorque(std::vector<double> curPos, std::vector<double> c
 
     // caculate the external_torque of wrist1,wrist2,wrist3
     num++;
+    if(num<smoothlevel)
+        kkk = num;
+    else
+        kkk = smoothlevel;
+
     torque.wrist1 = eff[3] - torWrist1_avg;
     if(fabs(eff[3]-torWrist1_avg)<delta_tor)
-        torWrist1_avg = (torWrist1_avg*(num-1) + eff[3])/num;
+        torWrist1_avg = (torWrist1_avg*(kkk-1) + eff[3])/kkk;
 
     torque.wrist2 = eff[4] - torWrist2_avg;
     if(fabs(eff[4]-torWrist2_avg)<delta_tor)
-        torWrist2_avg = (torWrist2_avg*(num-1) + eff[4])/num;
+        torWrist2_avg = (torWrist2_avg*(num-1) + eff[4])/kkk;
 
     torque.wrist3 = eff[5] - torWrist3_avg;
     if(fabs(eff[5]-torWrist3_avg)<delta_tor)
-        torWrist3_avg = (torWrist3_avg*(num-1) + eff[5])/num;
-
-    // remove the noise of the torque of base,shoulder and elbow
-    if(num>smoothlevel)
-    {
-        eff[3] = (eff[3] + torWrist1_avg*(smoothlevel-1))/smoothlevel;
-        eff[4] = (eff[4] + torWrist2_avg*(smoothlevel-1))/smoothlevel;
-        eff[5] = (eff[5] + torWrist3_avg*(smoothlevel-1))/smoothlevel;
-    }
-    else
-    {
-        eff[3] = (eff[3] + torWrist1_avg*(num-1))/num;
-        eff[4] = (eff[4] + torWrist2_avg*(num-1))/num;
-        eff[5] = (eff[5] + torWrist3_avg*(num-1))/num;
-    }
-    torWrist1_avg = eff[3];
-    torWrist2_avg = eff[4];
-    torWrist3_avg = eff[5];
+        torWrist3_avg = (torWrist3_avg*(kkk-1) + eff[5])/kkk;
 
     // caculate the external_torque of base
     torqueFricBase = ub_1*vel[0] + ub_2*signsign(vel[0]);
