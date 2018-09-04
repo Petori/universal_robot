@@ -144,6 +144,7 @@ ur_arm::Joints computeExTorque(std::vector<double> curPos, std::vector<double> c
     // the fric factor of joint_base.
     double ub_1 = 4.6243;
     double ub_2 = 5.5008;
+    double kkk = 0;
 
     // caculate the external_torque of wrist1,wrist2,wrist3
     num++;
@@ -217,7 +218,7 @@ ur_arm::Joints computeExTorque(std::vector<double> curPos, std::vector<double> c
 
     Jacob = cacJacob(pos);
     midMatrix = Jacob.transpose();
-    effectorF = midMatrix.inverse()*jointTorque6;
+    effectorF = pinv(midMatrix)*jointTorque6;
 
     torque.base = effectorF(0,0);
     torque.shoulder = effectorF(1,0);
