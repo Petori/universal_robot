@@ -27,6 +27,7 @@ double torWrist2_avg = 0;
 double torWrist3_avg = 0;
 double smoothlevel = 11;
 static double delta_tor = 0.3;
+double K3 = 7.4;   // K3 = torque/current;
 
 // Function definition
 void getCurRobotState(sensor_msgs::JointState curState);// The callback func for subscriber"monitor", get cur pos/vel/eff values.
@@ -101,25 +102,25 @@ ur_arm::Joints computeExTorque(std::vector<double> curPos, std::vector<double> c
     Eigen::MatrixXf Gq(2,1);
     Eigen::MatrixXf Mq(2,2);
 
-//    // new parameter of ur5
-    double m1 = 2.5784;
-    double m2 = 2.6595;
-    double l1_star = 0.5176;
-    double l2_star = 0.4414;
-    double u1_1=1.4725;
-    double u2_1=5.3404;
-    double u1_2=4.5720;
-    double u2_2=4.7128;
+////    // new parameter of ur5
+//    double m1 = 2.5784;
+//    double m2 = 2.6595;
+//    double l1_star = 0.5176;
+//    double l2_star = 0.4414;
+//    double u1_1=1.4725;
+//    double u2_1=5.3404;
+//    double u1_2=4.5720;
+//    double u2_2=4.7128;
 
-//    // the parameter of ur5
-//    double m1 = 0.8009;
-//    double m2 = 0.5515;
-//    double l1_star = 0.1320;
-//    double l2_star = 0.2926;
-//    double u1_1=0.2973;
-//    double u2_1=0.6849;
-//    double u1_2=0.5823;
-//    double u2_2=0.6754;
+    // the parameter of ur5
+    double m1 = 0.8009;
+    double m2 = 0.5515;
+    double l1_star = 0.1320;
+    double l2_star = 0.2926;
+    double u1_1=0.2973;
+    double u2_1=0.6849;
+    double u1_2=0.5823;
+    double u2_2=0.6754;
 
 //    // the parameter with grinder
 //    double m1 = 0.4254;
@@ -137,13 +138,11 @@ ur_arm::Joints computeExTorque(std::vector<double> curPos, std::vector<double> c
     double K = 10;
     // k2 has no sense
     double K2 = 1;
-//    // k3 = torque/eff;
-//    double K3 = 7.4;
     double dt = 0.008;
     double torqueFricBase;
     // the fric factor of joint_base.
-    double ub_1 = 4.6243;
-    double ub_2 = 5.5008;
+    double ub_1 = 0.6249;
+    double ub_2 = 0.7433;
     double kkk = 0;
 
     // caculate the external_torque of wrist1,wrist2,wrist3
@@ -220,12 +219,12 @@ ur_arm::Joints computeExTorque(std::vector<double> curPos, std::vector<double> c
     midMatrix = Jacob.transpose();
     effectorF = pinv(midMatrix)*jointTorque6;
 
-    torque.base = effectorF(0,0);
-    torque.shoulder = effectorF(1,0);
-    torque.elbow = effectorF(2,0);
-    torque.wrist1 = effectorF(3,0);
-    torque.wrist2 = effectorF(4,0);
-    torque.wrist3 = effectorF(5,0);
+    torque.base = K3*effectorF(0,0);
+    torque.shoulder = K3*effectorF(1,0);
+    torque.elbow = K3*effectorF(2,0);
+    torque.wrist1 = K3*effectorF(3,0);
+    torque.wrist2 = K3*effectorF(4,0);
+    torque.wrist3 = K3*effectorF(5,0);
 
     ROS_INFO("External force of x orientation is [%lf]N.",torque.base );
 
