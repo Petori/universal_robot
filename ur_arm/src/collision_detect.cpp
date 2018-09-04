@@ -227,7 +227,7 @@ ur_arm::Joints computeExTorque(std::vector<double> curPos, std::vector<double> c
     torque.wrist2 = effectorF(4,0);
     torque.wrist3 = effectorF(5,0);
 
-    ROS_INFO("External force of x orientation is [%lf]N.",torque.base);
+    ROS_INFO("External force of x orientation is [%lf]N.",torque.base );
 
     return torque;
 }
