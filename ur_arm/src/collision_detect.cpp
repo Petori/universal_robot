@@ -199,8 +199,8 @@ ur_arm::Joints computeExTorque(std::vector<double> curPos, std::vector<double> c
     torqueFric(0,0) = u1_1*vel[1] + u2_1*signsign(vel[1]);
     torqueFric(1,0) = u1_2*vel[2] + u2_2*signsign(vel[2]);
 
-    torque.shoulder = fabs(K2*(exTorque2(0,0) - torqueFric(0,0)));
-    torque.elbow = fabs(K2*(exTorque2(1,0) - torqueFric(1,0)));
+    torque.shoulder = K2*(exTorque2(0,0) - torqueFric(0,0));
+    torque.elbow = K2*(exTorque2(1,0) - torqueFric(1,0));
 
     // caculate the force and torque of effector
     Eigen::MatrixXf Jacob(6,6);
