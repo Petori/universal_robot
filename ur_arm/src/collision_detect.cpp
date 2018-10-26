@@ -179,9 +179,9 @@ ur_arm::Joints computeExTorque(std::vector<double> curPos, std::vector<double> c
     jointTorque2(0,0) = eff[1];
     jointTorque2(1,0) = eff[2];
 
-    Mq(0,0) = m1*l1_star*l1_star + m2*(l1*l1+l1_star*l1_star+2*l1*l1_star*cos(pos2(1,0)));
-    Mq(0,1) = m2*(l2_star*l2_star+l1*l1_star*cos(pos2(1,0)));
-    Mq(1,0) = m2*(l2_star*l2_star+l1*l1_star*cos(pos2(1,0)));
+    Mq(0,0) = m1*l1_star*l1_star + m2*(l1*l1+l2_star*l2_star+2*l1*l2_star*cos(pos2(1,0)));
+    Mq(0,1) = m2*(l2_star*l2_star+l1*l2_star*cos(pos2(1,0)));
+    Mq(1,0) = m2*(l2_star*l2_star+l1*l2_star*cos(pos2(1,0)));
     Mq(1,1) = m2*l2_star*l2_star;
 
     Cq(0,0) = -m2*l1*l2_star*sin(pos2(1,0))*vel2(1,0);
