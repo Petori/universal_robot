@@ -199,7 +199,10 @@ add_executable(
   grinder_newmethod
   src/grinder_newmethod.cpp
 )
-
+add_executable(
+  zxw_learningNoCollision
+  src/zxw_learningNoCollision.cpp
+)
 
 target_link_libraries(
   node
@@ -233,6 +236,10 @@ target_link_libraries(
   grinder_newmethod
   ${catkin_LIBRARIES}
 )
+target_link_libraries(
+  zxw_learningNoCollision
+  ${catkin_LIBRARIES}
+)
 
 add_dependencies(
   node
@@ -264,6 +271,10 @@ add_dependencies(
 )
 add_dependencies(
   grinder_newmethod
+  ${catkin_EXPORTED_TARGETS}
+)
+add_dependencies(
+  zxw_learningNoCollision
   ${catkin_EXPORTED_TARGETS}
 )
 ## Rename C++ executable without prefix
