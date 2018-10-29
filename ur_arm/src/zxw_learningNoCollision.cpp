@@ -121,7 +121,8 @@ for(int iii=0;iii<6;iii++){
 
           H_xx(0,0)=X_state(0,0);    H_xx(1,0)=X_state(1,0);
           H_xx(2,0)=X_state(2,0);    H_xx(3,0)=X_state(3,0);
-          H_xx(4,0)=u_control;
+	  temp=K_control*X_state_M1;
+          H_xx(4,0)=temp(0,0);
 
           temp(0,0) = u_control_M1*u_control_M1;
           c_t=  X_state_M1.transpose()*Q_1*X_state_M1+ temp;
@@ -157,7 +158,7 @@ for(int iii=0;iii<6;iii++){
       H_21(0,3)=Theta(13,0)/2;
 
       H_22=Theta(14,0);
-      K_control=H_21/H_22;
+      K_control=-H_21/H_22;
       ROS_INFO("K_control");
       std::cout<<K_control(0,0)<<"   "<<K_control(0,1)<<"   "<<K_control(0,2)<<"   "<<K_control(0,3)<<"   "<<std::endl;
 
