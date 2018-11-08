@@ -1,5 +1,6 @@
 #include <ros/ros.h>
 #include <geometry_msgs/Twist.h>
+#include <geometry_msgs/WrenchStamped.h>
 #include <iostream>
 #include <fstream>
 #include <vector>
@@ -17,6 +18,7 @@
 // Global Variables
 std::ofstream fout1("data/jointStates[dR].txt");
 std::ofstream fout2("data/externalTorque[dR].txt");
+std::ofstream fout3("data/netftData[dR].txt");
 std::vector<double> curPos;
 std::vector<double> curVel;
 std::vector<double> curEff;
@@ -24,6 +26,7 @@ std::vector<double> curEff;
 // Function definition
 void recordJointStateToTxt(sensor_msgs::JointState curState);
 void recordExternalTorqueToTxt(ur_arm::Joints joints);
+void recordNetftDataToTxt(geometry_msgs::WrenchStamped awrench);
 
 // Main
 int main(int argc, char **argv)
@@ -35,12 +38,14 @@ int main(int argc, char **argv)
 
   ros::Subscriber recorder1 = n.subscribe<sensor_msgs::JointState>("/joint_states", 1, recordJointStateToTxt);// Subscribing the joint_states and record them.
   ros::Subscriber recorder2 = n.subscribe<ur_arm::Joints>("/external_torque", 1, recordExternalTorqueToTxt);
+  ros::Subscriber recorder3 = n.subscribe<geometry_msgs::WrenchStamped>("/netft_data", 1, recordNetftDataToTxt);
 
   usleep(500000);//Leave 0.5s for building the subscribers and publishers
 
   while(ros::ok()){};
   fout1.close();
   fout2.close();
+  fout3.close();
 
   return 0;
 }
@@ -109,4 +114,23 @@ void recordJointStateToTxt(sensor_msgs::JointState curState)
     }
     fout1<<curEff[curEff.size()-1]<<']'<<std::endl;
     fout1<<"---"<<std::endl;
+}
+
+void recordNetftDataToTxt(geometry_msgs::WrenchStamped awrench)
+{
+    geometry_msgs::WrenchStamped curWrench;
+    geometry_msgs::Vector3 temp1;
+    geometry_msgs::Vector3 temp2;
+
+    curWrench = awrench;
+    temp1 = curWrench.wrench.force;
+    temp2 = curWrench.wrench.torque;
+
+    fout3<<"[";
+    fout3<<temp1.x<<", ";
+    fout3<<temp1.y<<", ";
+    fout3<<temp1.z<<", ";
+    fout3<<temp2.x<<", ";
+    fout3<<temp2.y<<", ";
+    fout3<<temp2.z<<"]"<<std::endl;
 }
