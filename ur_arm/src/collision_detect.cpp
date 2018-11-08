@@ -201,6 +201,9 @@ ur_arm::Joints computeExTorque(std::vector<double> curPos, std::vector<double> c
 
     torque.shoulder = K2*(exTorque2(0,0) - torqueFric(0,0));
     torque.elbow = K2*(exTorque2(1,0) - torqueFric(1,0));
+    // how to eliminate the accumulated error? ----------------------------- 20181108
+    // first, set a value for collision detecting.
+    // then, when torque is less than the value, make the torque be zero and make exTorque2 equal to torqueFric
 
     // caculate the force and torque of effector
     Eigen::MatrixXf Jacob(6,6);
