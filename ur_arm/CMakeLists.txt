@@ -203,6 +203,10 @@ add_executable(
   zxw_learningNoCollision
   src/zxw_learningNoCollision.cpp
 )
+add_executable(
+  getSensorData
+  src/getSensorData.cpp
+)
 
 target_link_libraries(
   node
@@ -240,6 +244,13 @@ target_link_libraries(
   zxw_learningNoCollision
   ${catkin_LIBRARIES}
 )
+target_link_libraries(
+  getSensorData
+  ${catkin_LIBRARIES}
+)
+
+
+
 
 add_dependencies(
   node
@@ -275,6 +286,10 @@ add_dependencies(
 )
 add_dependencies(
   zxw_learningNoCollision
+  ${catkin_EXPORTED_TARGETS}
+)
+add_dependencies(
+  getSensorData
   ${catkin_EXPORTED_TARGETS}
 )
 ## Rename C++ executable without prefix
