@@ -24,7 +24,7 @@
 
 // Global Variables
 std::vector<double> curPos;
-double m = 0.5; // the weight of sensor, flange and tool
+double m = 0.28; // the weight of sensor and tool
 double g = 9.793;
 double d = 0.05; // the distance between sensor's output and robot's flange
 geometry_msgs::Vector3 rawForce;
@@ -81,6 +81,7 @@ geometry_msgs::WrenchStamped cacDealtData(geometry_msgs::Vector3 force, std::vec
     ur_arm::PoseMatrix pose;
     Eigen::MatrixXf poseRot(3,3);
     Eigen::MatrixXf rawF(3,1);
+    Eigen::MatrixXf graInflu(3,1);
     Eigen::MatrixXf cacF(3,1);
     geometry_msgs::Vector3 dealtForce;
 
@@ -99,10 +100,13 @@ geometry_msgs::WrenchStamped cacDealtData(geometry_msgs::Vector3 force, std::vec
     rawF(1,0) = force.y;
     rawF(2,0) = force.z;
 
+    graInflu(0,0) = 0;
+    graInflu(1,0) = 0;
+    graInflu(2,0) = m*g;
+
     // transform the force into base frame
     // and eliminate the bias and gravity
-    cacF = poseRot*rawF - bias;
-    cacF(2,0) = cacF(2,0) - m*g;
+    cacF = rawF - bias + poseRot.transpose()*graInflu;
 
     dealtForce.x = cacF(0,0);
     dealtForce.y = cacF(1,0);
