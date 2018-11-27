@@ -207,6 +207,10 @@ add_executable(
   getSensorData
   src/getSensorData.cpp
 )
+add_executable(
+  grindBySensor
+  src/grindBySensor.cpp
+)
 
 target_link_libraries(
   node
@@ -248,7 +252,10 @@ target_link_libraries(
   getSensorData
   ${catkin_LIBRARIES}
 )
-
+target_link_libraries(
+  grindBySensor
+  ${catkin_LIBRARIES}
+)
 
 
 
@@ -290,6 +297,10 @@ add_dependencies(
 )
 add_dependencies(
   getSensorData
+  ${catkin_EXPORTED_TARGETS}
+)
+add_dependencies(
+  grindBySensor
   ${catkin_EXPORTED_TARGETS}
 )
 ## Rename C++ executable without prefix
