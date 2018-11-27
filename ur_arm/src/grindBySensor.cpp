@@ -30,7 +30,9 @@ bool collisionHappen = false;
 bool rule = false;// the collision judging rule.
 ur_arm::Joints torque;
 double collisionForce = 0;
-double collisonThreshold = 1.5;
+double collisonThreshold = 3;
+double rawForce = 0;
+double bias = 0;
 
 // Function definition
 void jointStateGet(sensor_msgs::JointState curState);
@@ -66,7 +68,7 @@ int main(int argc, char **argv)
   setVelStop();
 
   bool rule = false;
-  int testPointNum = 7;
+  int testPointNum = 12;
 
 //  double distanceInterval = 0.04; So the move time is 2s.
   signal(SIGINT, Stop);// deal with the "ctrl + C"
@@ -74,6 +76,7 @@ int main(int argc, char **argv)
   for(int i=0;i<testPointNum;i++)
   {
       rule = false;
+      bias = rawForce;
       vel_pub.publish(velFoward);
       sleep(1);
       while(!rule&&ros::ok())
@@ -83,9 +86,9 @@ int main(int argc, char **argv)
       recordJoints(curPos);
       ROS_INFO("I got [%d] point.",i+1);
       vel_pub.publish(velBack);
-      sleep(3);
-      vel_pub.publish(velMove);
       sleep(2);
+      vel_pub.publish(velMove);
+      sleep(1);
       vel_pub.publish(velStop);
       sleep(1);
   }
@@ -98,7 +101,8 @@ void exTorGet(geometry_msgs::WrenchStamped awrench)
     geometry_msgs::Vector3 force;
     force = awrench.wrench.force;
 
-    collisionForce = fabs(force.y);
+    rawForce = force.y;
+    collisionForce = fabs(rawForce - bias);
 }
 
 void setVelFoward()
@@ -200,11 +204,10 @@ void recordJoints(std::vector<double> pos)
     std::vector<double> posTmp;
     // Maybe posTmp can not be assigned like this.
     posTmp = pos;
-    fout1<<"[";
     fout1<<posTmp[0]<<", ";
     fout1<<posTmp[1]<<", ";
     fout1<<posTmp[2]<<", ";
     fout1<<posTmp[3]<<", ";
     fout1<<posTmp[4]<<", ";
-    fout1<<posTmp[5]<<"]"<<std::endl;
+    fout1<<posTmp[5]<<std::endl;
 }
