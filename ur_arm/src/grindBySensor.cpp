@@ -26,13 +26,14 @@ geometry_msgs::Twist velFoward;
 geometry_msgs::Twist velBack;
 geometry_msgs::Twist velMove;
 geometry_msgs::Twist velStop;
+geometry_msgs::WrenchStamped wrenchBias;
+geometry_msgs::WrenchStamped wrenchRaw;
+geometry_msgs::WrenchStamped wrenchReal;
 bool collisionHappen = false;
 bool rule = false;// the collision judging rule.
 ur_arm::Joints torque;
 double collisionForce = 0;
 double collisonThreshold = 3;
-double rawForce = 0;
-double bias = 0;
 
 // Function definition
 void jointStateGet(sensor_msgs::JointState curState);
@@ -41,7 +42,8 @@ void setVelFoward();
 void setVelBack();
 void setVelMove();
 void setVelStop();
-void recordJoints(std::vector<double> pos);
+void recordPointInfo(std::vector<double> pos, geometry_msgs::WrenchStamped awrench);
+geometry_msgs::WrenchStamped wrenchSubstract(geometry_msgs::WrenchStamped awrench1, geometry_msgs::WrenchStamped awrench2);
 void Stop(int signo)
 {
     printf("oops! You stopped the program!\n");
@@ -76,14 +78,16 @@ int main(int argc, char **argv)
   for(int i=0;i<testPointNum;i++)
   {
       rule = false;
-      bias = rawForce;
+      wrenchBias = wrenchRaw;
       vel_pub.publish(velFoward);
       sleep(1);
       while(!rule&&ros::ok())
       {
+          wrenchReal = wrenchSubstract(wrenchRaw, wrenchBias);
+          collisionForce = fabs(wrenchReal.wrench.force.y);
           rule = (collisionForce>collisonThreshold);
       }
-      recordJoints(curPos);
+      recordPointInfo(curPos, wrenchReal);
       ROS_INFO("I got [%d] point.",i+1);
       vel_pub.publish(velBack);
       sleep(2);
@@ -98,11 +102,7 @@ int main(int argc, char **argv)
 
 void exTorGet(geometry_msgs::WrenchStamped awrench)
 {
-    geometry_msgs::Vector3 force;
-    force = awrench.wrench.force;
-
-    rawForce = force.y;
-    collisionForce = fabs(rawForce - bias);
+    wrenchRaw = awrench;
 }
 
 void setVelFoward()
@@ -199,15 +199,35 @@ void jointStateGet(sensor_msgs::JointState curState)
     curPos = curState.position;
 }
 
-void recordJoints(std::vector<double> pos)
+void recordPointInfo(std::vector<double> pos, geometry_msgs::WrenchStamped awrench)
 {
-    std::vector<double> posTmp;
-    // Maybe posTmp can not be assigned like this.
-    posTmp = pos;
-    fout1<<posTmp[0]<<", ";
-    fout1<<posTmp[1]<<", ";
-    fout1<<posTmp[2]<<", ";
-    fout1<<posTmp[3]<<", ";
-    fout1<<posTmp[4]<<", ";
-    fout1<<posTmp[5]<<std::endl;
+    fout1<<ros::Time::now()<<",";
+    fout1<<pos[0]<<", ";
+    fout1<<pos[1]<<", ";
+    fout1<<pos[2]<<", ";
+    fout1<<pos[3]<<", ";
+    fout1<<pos[4]<<", ";
+    fout1<<pos[5]<<",";
+    fout1<<awrench.wrench.force.x<<",";
+    fout1<<awrench.wrench.force.y<<",";
+    fout1<<awrench.wrench.force.z<<",";
+    fout1<<awrench.wrench.torque.x<<",";
+    fout1<<awrench.wrench.torque.y<<",";
+    fout1<<awrench.wrench.torque.z;
+    fout1<<std::endl;
+}
+
+geometry_msgs::WrenchStamped wrenchSubstract(geometry_msgs::WrenchStamped awrench1, geometry_msgs::WrenchStamped awrench2)
+{
+    geometry_msgs::WrenchStamped result;
+
+    result.header = awrench1.header;
+    result.wrench.force.x = awrench1.wrench.force.x - awrench2.wrench.force.x;
+    result.wrench.force.y = awrench1.wrench.force.y - awrench2.wrench.force.y;
+    result.wrench.force.z = awrench1.wrench.force.z - awrench2.wrench.force.z;
+    result.wrench.torque.x = awrench1.wrench.torque.x - awrench2.wrench.torque.x;
+    result.wrench.torque.y = awrench1.wrench.torque.y - awrench2.wrench.torque.y;
+    result.wrench.torque.z = awrench1.wrench.torque.z - awrench2.wrench.torque.z;
+
+    return result;
 }
