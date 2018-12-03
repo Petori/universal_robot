@@ -33,7 +33,7 @@ bool collisionHappen = false;
 bool rule = false;// the collision judging rule.
 ur_arm::Joints torque;
 double collisionForce = 0;
-double collisonThreshold = 3;
+double collisonThreshold = 1.5;
 
 // Function definition
 void jointStateGet(sensor_msgs::JointState curState);
@@ -81,10 +81,16 @@ int main(int argc, char **argv)
       wrenchBias = wrenchRaw;
       vel_pub.publish(velFoward);
       sleep(1);
+      double a=0;
+      double b=0;
+      double c=0;
       while(!rule&&ros::ok())
       {
           wrenchReal = wrenchSubstract(wrenchRaw, wrenchBias);
-          collisionForce = fabs(wrenchReal.wrench.force.y);
+          a = wrenchReal.wrench.force.x;
+          b = wrenchReal.wrench.force.y;
+          c = wrenchReal.wrench.force.z;
+          collisionForce = sqrt(a*a + b*b + c*c);
           rule = (collisionForce>collisonThreshold);
       }
       recordPointInfo(curPos, wrenchReal);
