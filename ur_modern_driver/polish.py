@@ -10,15 +10,12 @@ from control_msgs.msg import *
 from trajectory_msgs.msg import *
 from sensor_msgs.msg import JointState
 from math import pi
+from std_msgs.msg import Int8
 
 JOINT_NAMES = ['shoulder_pan_joint', 'shoulder_lift_joint', 'elbow_joint', 'wrist_1_joint', 'wrist_2_joint', 'wrist_3_joint']
 
-Q1 = [0,-1.57,0,-1.57,0,0]
-Q2 = [2,-1.57,0,-1.57,0,0]
-Q3 = [4,-1.57,0,-1.57,0,0]
-Q4 = [6,-1.57,0,-1.57,0,0]
-Q5 = [0,-1.57,0,-1.57,0,0]
-
+Q1 = [0.73338,-1.198,2.0103,-2.3811,-1.5778,0.7423]
+Q2 = [0.73482,-1.1992,2.0121,-2.3817,-1.5778,0.74374]
 
 
 client = None
@@ -32,11 +29,8 @@ def move():
         joints_pos = joint_states.position
         g.trajectory.points = [
             JointTrajectoryPoint(positions=joints_pos, velocities=[0]*6, time_from_start=rospy.Duration(0.0)),
-            JointTrajectoryPoint(positions=Q1, velocities=[0]*6, time_from_start=rospy.Duration(1)),
-            JointTrajectoryPoint(positions=Q2, velocities=[0]*6, time_from_start=rospy.Duration(2)),
-            JointTrajectoryPoint(positions=Q3, velocities=[0]*6, time_from_start=rospy.Duration(3)),
-            JointTrajectoryPoint(positions=Q4, velocities=[0]*6, time_from_start=rospy.Duration(4)),
-            JointTrajectoryPoint(positions=Q5, velocities=[0]*6, time_from_start=rospy.Duration(5))]
+            JointTrajectoryPoint(positions=Q1, velocities=[0]*6, time_from_start=rospy.Duration(3)),
+            JointTrajectoryPoint(positions=Q2, velocities=[0]*6, time_from_start=rospy.Duration(3.66))]
         client.send_goal(g)
         client.wait_for_result()
     except KeyboardInterrupt:
@@ -44,6 +38,14 @@ def move():
         raise
     except:
         raise
+
+def talker():
+    pub = rospy.Publisher('chatter_test', Int8, queue_size=10)
+    rate = rospy.Rate(125) # 10hz
+    while not rospy.is_shutdown():
+        hello_str = 6
+        pub.publish(hello_str)
+        rate.sleep()
 
 def main():
     global client
@@ -53,18 +55,12 @@ def main():
         print "Waiting for server..."
         client.wait_for_server()
         print "Connected to server"
-        child1 = subprocess.Popen('rostopic echo /joint_states >1.txt',shell=True)
         move()
         print "Trajectory finished"
-        time.sleep(0.5)
-        child2 = subprocess.Popen('cp 1.txt data/polish.txt',shell=True)
-        time.sleep(0.5)
-        child3 = subprocess.Popen('rm 1.txt',shell=True)
-        time.sleep(0.5)
-        if True:
-            child1.kill()
-            child2.kill()
-            child3.kill()
+        talker()
+        sleep(20.0)
+        
+
     except KeyboardInterrupt:
         rospy.signal_shutdown("KeyboardInterrupt")
         raise
