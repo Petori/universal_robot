@@ -33,7 +33,7 @@ bool collisionHappen = false;
 bool rule = false;// the collision judging rule.
 ur_arm::Joints torque;
 double collisionForce = 0;
-double collisonThreshold = 1.5;
+double collisonThreshold = 2;
 
 // Function definition
 void jointStateGet(sensor_msgs::JointState curState);
@@ -70,7 +70,7 @@ int main(int argc, char **argv)
   setVelStop();
 
   bool rule = false;
-  int testPointNum = 12;
+  int testPointNum = 10;
 
 //  double distanceInterval = 0.04; So the move time is 2s.
   signal(SIGINT, Stop);// deal with the "ctrl + C"
@@ -161,7 +161,7 @@ void setVelMove()
     geometry_msgs::Vector3 angular;
     double vx,vy,vz;
     double wx,wy,wz;
-    vx = 0.005;
+    vx = 0.03;
     vy = 0;
     vz = 0;
     wx = 0;
