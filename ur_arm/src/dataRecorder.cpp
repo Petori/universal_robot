@@ -67,6 +67,7 @@ void recordExternalTorqueToTxt(ur_arm::Joints joints)
     ur_arm::Joints curJoints;
     curJoints = joints;
     fout2<<"[";
+    fout2<<ros::Time::now()<<",";
     fout2<<curJoints.base<<", ";
     fout2<<curJoints.shoulder<<", ";
     fout2<<curJoints.elbow<<", ";
@@ -89,7 +90,7 @@ void recordJointStateToTxt(sensor_msgs::JointState curState)
     fout1<<"header:"<<std::endl;
     fout1<<"  seq: "<<"000000"<<std::endl;
     fout1<<"  stamp:"<<std::endl;
-    fout1<<"    secs: "<<"000000"<<std::endl;
+    fout1<<"    secs: "<<ros::Time::now()<<std::endl;
     fout1<<"    nsecs: "<<"000000"<<std::endl;
     fout1<<"  frame_id: \'\'"<<std::endl;
 
@@ -139,6 +140,7 @@ void recordNetftDataToTxt(geometry_msgs::WrenchStamped awrench)
     temp2 = curWrench.wrench.torque;
 
     fout3<<"[";
+    fout3<<ros::Time::now()<<",";
     fout3<<temp1.x<<", ";
     fout3<<temp1.y<<", ";
     fout3<<temp1.z<<", ";
@@ -158,6 +160,7 @@ void recordRawWorldDataToTxt(geometry_msgs::WrenchStamped awrench)
     temp2 = curWrench.wrench.torque;
 
     fout4<<"[";
+    fout4<<ros::Time::now()<<",";
     fout4<<temp1.x<<", ";
     fout4<<temp1.y<<", ";
     fout4<<temp1.z<<", ";
@@ -177,6 +180,7 @@ void recordTransWorldDataToTxt(geometry_msgs::WrenchStamped awrench)
     temp2 = curWrench.wrench.torque;
 
     fout5<<"[";
+    fout5<<ros::Time::now()<<",";
     fout5<<temp1.x<<", ";
     fout5<<temp1.y<<", ";
     fout5<<temp1.z<<", ";
@@ -196,6 +200,7 @@ void recordTransToolDataToTxt(geometry_msgs::WrenchStamped awrench)
     temp2 = curWrench.wrench.torque;
 
     fout6<<"[";
+    fout6<<ros::Time::now()<<",";
     fout6<<temp1.x<<", ";
     fout6<<temp1.y<<", ";
     fout6<<temp1.z<<", ";
@@ -215,6 +220,7 @@ void recordDealtDataToTxt(geometry_msgs::WrenchStamped awrench)
     temp2 = curWrench.wrench.torque;
 
     fout7<<"[";
+    fout7<<ros::Time::now()<<",";
     fout7<<temp1.x<<", ";
     fout7<<temp1.y<<", ";
     fout7<<temp1.z<<", ";

@@ -33,7 +33,7 @@ bool collisionHappen = false;
 bool rule = false;// the collision judging rule.
 ur_arm::Joints torque;
 double collisionForce = 0;
-double collisonThreshold = 2;
+double collisonThreshold = 4;
 
 // Function definition
 void jointStateGet(sensor_msgs::JointState curState);
@@ -70,7 +70,7 @@ int main(int argc, char **argv)
   setVelStop();
 
   bool rule = false;
-  int testPointNum = 10;
+  int testPointNum = 2;
 
 //  double distanceInterval = 0.04; So the move time is 2s.
   signal(SIGINT, Stop);// deal with the "ctrl + C"
@@ -90,13 +90,18 @@ int main(int argc, char **argv)
           a = wrenchReal.wrench.force.x;
           b = wrenchReal.wrench.force.y;
           c = wrenchReal.wrench.force.z;
-          collisionForce = sqrt(a*a + b*b + c*c);
+          collisionForce = fabs(c);//sqrt(a*a + b*b + c*c);
           rule = (collisionForce>collisonThreshold);
       }
       recordPointInfo(curPos, wrenchReal);
       ROS_INFO("I got [%d] point.",i+1);
       vel_pub.publish(velBack);
       sleep(2);
+      if (i == testPointNum-1)
+          {
+          vel_pub.publish(velStop);
+          break;
+      }
       vel_pub.publish(velMove);
       sleep(1);
       vel_pub.publish(velStop);
@@ -118,8 +123,8 @@ void setVelFoward()
     double vx,vy,vz;
     double wx,wy,wz;
     vx = 0;
-    vy = -0.005;
-    vz = 0;
+    vy = 0;
+    vz = -0.005;
     wx = 0;
     wy = 0;
     wz = 0;
@@ -140,8 +145,8 @@ void setVelBack()
     double vx,vy,vz;
     double wx,wy,wz;
     vx = 0;
-    vy = 0.005;
-    vz = 0;
+    vy = 0;
+    vz = 0.005;
     wx = 0;
     wy = 0;
     wz = 0;
@@ -161,7 +166,7 @@ void setVelMove()
     geometry_msgs::Vector3 angular;
     double vx,vy,vz;
     double wx,wy,wz;
-    vx = 0.03;
+    vx = -0.05;
     vy = 0;
     vz = 0;
     wx = 0;
