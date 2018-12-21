@@ -15,6 +15,7 @@
 #include <unistd.h>   // for function usleep(microseconds)
 #include <cstdlib>
 #include <signal.h>   // deal with the "ctrl + C"
+#include "netft_utils/SetBias.h"
 
 using std::cout;
 using std::endl;
@@ -25,6 +26,7 @@ std::vector<double> curPos;
 geometry_msgs::Twist velFoward;
 geometry_msgs::Twist velBack;
 geometry_msgs::Twist velMove;
+geometry_msgs::Twist velMoveReverse;
 geometry_msgs::Twist velStop;
 geometry_msgs::WrenchStamped wrenchBias;
 geometry_msgs::WrenchStamped wrenchRaw;
@@ -33,7 +35,7 @@ bool collisionHappen = false;
 bool rule = false;// the collision judging rule.
 ur_arm::Joints torque;
 double collisionForce = 0;
-double collisonThreshold = 4;
+double collisonThreshold = 2;
 
 // Function definition
 void jointStateGet(sensor_msgs::JointState curState);
@@ -41,6 +43,7 @@ void exTorGet(geometry_msgs::WrenchStamped awrench);// Judge if collision happen
 void setVelFoward();
 void setVelBack();
 void setVelMove();
+void setVelMoveReverse();
 void setVelStop();
 void recordPointInfo(std::vector<double> pos, geometry_msgs::WrenchStamped awrench);
 geometry_msgs::WrenchStamped wrenchSubstract(geometry_msgs::WrenchStamped awrench1, geometry_msgs::WrenchStamped awrench2);
@@ -64,13 +67,20 @@ int main(int argc, char **argv)
   ros::Subscriber recorder1 = n.subscribe<sensor_msgs::JointState>("/joint_states", 1, jointStateGet);
   usleep(500000);//Leave 0.5s for building the subscribers and publishers
 
+  // for servcie call
+  netft_utils::SetBias bias;
+  bias.request.toBias = true;
+  bias.request.forceMax = 50;
+  bias.request.torqueMax = 10;
+
   setVelFoward();
   setVelBack();
   setVelMove();
+  setVelMoveReverse();
   setVelStop();
 
   bool rule = false;
-  int testPointNum = 2;
+  int testPointNum = 10;
 
 //  double distanceInterval = 0.04; So the move time is 2s.
   signal(SIGINT, Stop);// deal with the "ctrl + C"
@@ -78,6 +88,10 @@ int main(int argc, char **argv)
   for(int i=0;i<testPointNum;i++)
   {
       rule = false;
+      if(ros::service::call("/bias",bias))
+          {
+          ROS_INFO("You called the bias.");
+      }
       wrenchBias = wrenchRaw;
       vel_pub.publish(velFoward);
       sleep(1);
@@ -86,17 +100,18 @@ int main(int argc, char **argv)
       double c=0;
       while(!rule&&ros::ok())
       {
-          wrenchReal = wrenchSubstract(wrenchRaw, wrenchBias);
+          //wrenchReal = wrenchSubstract(wrenchRaw, wrenchBias);
+          wrenchReal = wrenchRaw;
           a = wrenchReal.wrench.force.x;
           b = wrenchReal.wrench.force.y;
           c = wrenchReal.wrench.force.z;
-          collisionForce = fabs(c);//sqrt(a*a + b*b + c*c);
+          collisionForce = sqrt(a*a + b*b + c*c);
           rule = (collisionForce>collisonThreshold);
       }
       recordPointInfo(curPos, wrenchReal);
       ROS_INFO("I got [%d] point.",i+1);
       vel_pub.publish(velBack);
-      sleep(2);
+      usleep(500000);
       if (i == testPointNum-1)
           {
           vel_pub.publish(velStop);
@@ -107,6 +122,11 @@ int main(int argc, char **argv)
       vel_pub.publish(velStop);
       sleep(1);
   }
+  sleep(1);
+  vel_pub.publish(velMoveReverse);
+  sleep(testPointNum-1);
+  vel_pub.publish(velStop);
+  ROS_INFO("Exploration finished.");
   ROS_INFO("I have generated the jointsRecord.txt file.");
   return 0;
 }
@@ -123,8 +143,8 @@ void setVelFoward()
     double vx,vy,vz;
     double wx,wy,wz;
     vx = 0;
-    vy = 0;
-    vz = -0.005;
+    vy = -0.005;
+    vz = 0;
     wx = 0;
     wy = 0;
     wz = 0;
@@ -145,8 +165,8 @@ void setVelBack()
     double vx,vy,vz;
     double wx,wy,wz;
     vx = 0;
-    vy = 0;
-    vz = 0.005;
+    vy = 0.05;
+    vz = 0;
     wx = 0;
     wy = 0;
     wz = 0;
@@ -166,7 +186,7 @@ void setVelMove()
     geometry_msgs::Vector3 angular;
     double vx,vy,vz;
     double wx,wy,wz;
-    vx = -0.05;
+    vx = 0.05;
     vy = 0;
     vz = 0;
     wx = 0;
@@ -180,6 +200,28 @@ void setVelMove()
     angular.z = wz;
     velMove.linear = linear;
     velMove.angular = angular;
+}
+
+void setVelMoveReverse()
+{
+    geometry_msgs::Vector3 linear;
+    geometry_msgs::Vector3 angular;
+    double vx,vy,vz;
+    double wx,wy,wz;
+    vx = -0.05;
+    vy = 0;
+    vz = 0;
+    wx = 0;
+    wy = 0;
+    wz = 0;
+    linear.x = vx;
+    linear.y = vy;
+    linear.z = vz;
+    angular.x = wx;
+    angular.y = wy;
+    angular.z = wz;
+    velMoveReverse.linear = linear;
+    velMoveReverse.angular = angular;
 }
 
 void setVelStop()
