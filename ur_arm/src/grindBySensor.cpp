@@ -35,7 +35,7 @@ bool collisionHappen = false;
 bool rule = false;// the collision judging rule.
 ur_arm::Joints torque;
 double collisionForce = 0;
-double collisonThreshold = 2;
+double collisonThreshold = 3;
 
 // Function definition
 void jointStateGet(sensor_msgs::JointState curState);
