@@ -80,7 +80,7 @@ int main(int argc, char **argv)
   setVelStop();
 
   bool rule = false;
-  int testPointNum = 10;
+  int testPointNum = 25;
 
 //  double distanceInterval = 0.04; So the move time is 2s.
   signal(SIGINT, Stop);// deal with the "ctrl + C"
@@ -186,7 +186,7 @@ void setVelMove()
     geometry_msgs::Vector3 angular;
     double vx,vy,vz;
     double wx,wy,wz;
-    vx = 0.05;
+    vx = 0.005;
     vy = 0;
     vz = 0;
     wx = 0;
@@ -208,7 +208,7 @@ void setVelMoveReverse()
     geometry_msgs::Vector3 angular;
     double vx,vy,vz;
     double wx,wy,wz;
-    vx = -0.05;
+    vx = -0.005;
     vy = 0;
     vz = 0;
     wx = 0;
