@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package>
-  <name>ur_arm_left</name>
+  <name>ur_arm</name>
   <version>0.0.0</version>
-  <description>The ur_arm_left package</description>
+  <description>The ur_arm package</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag --> 
   <!-- Example:  -->

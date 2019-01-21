@@ -26,24 +26,15 @@ int main(int argc, char **argv)
   ros::init(argc, argv, "ur_arm_controller");
 
   std::string host = std::string("192.168.0.103");
-  //std::string host_right = std::string("192.168.0.104");
-
   int port = 30003;
 
   ros::param::get("host", host);
   ros::param::get("port", port);
 
-  //ros::param::get("host_right", host_right);
-  //ros::param::get("port_right", port_right);  
-
   Arm *arm = new Arm(host, port);
-  //Arm *arm_right = new Arm(host_right, port_right);
-
   ArmNode arm_node(arm);
-  //ArmNode arm_node_right(arm_right);
-  
+
   arm_node.spin();
-  //arm_node_right.spin();
 
   return 0;
 }

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(ur_arm_left)
+project(ur_arm)
 
 ## Add support for C++11, supported in ROS Kinetic and newer
 # add_definitions(-std=c++11)
@@ -161,7 +161,7 @@ include_directories(
 
 
 add_executable(
-  left_node
+  node
   src/main.cpp
   src/ur_arm.cpp
   src/ur_arm_forkin.cpp
@@ -171,35 +171,138 @@ add_executable(
   include/ur_arm/ur_arm_forkin.h
   include/ur_arm/ur_arm_node.h
 )
-
 add_executable(
-  left_yyf_moveForce
-  src/yyf_moveForce.cpp
+  vel_control
+  src/vel_control.cpp
+)
+add_executable(
+  collision_detect
+  src/collision_detect.cpp
+)
+add_executable(
+  grinder
+  src/grinder.cpp
+)
+add_executable(
+  dataRecorder
+  src/dataRecorder.cpp
+)
+add_executable(
+  parameterEstimate
+  src/parameterEstimate.cpp
+)
+add_executable(
+  collision_detect_simple
+  src/collision_detect_simple.cpp
+)
+add_executable(
+  grinder_newmethod
+  src/grinder_newmethod.cpp
+)
+add_executable(
+  zxw_learningNoCollision
+  src/zxw_learningNoCollision.cpp
+)
+add_executable(
+  getSensorData
+  src/getSensorData.cpp
+)
+add_executable(
+  grindBySensor
+  src/grindBySensor.cpp
 )
 
-
-
 target_link_libraries(
-  left_node
+  node
+  ${catkin_LIBRARIES}
+)
+target_link_libraries(
+  vel_control
+  ${catkin_LIBRARIES}
+)
+target_link_libraries(
+  collision_detect
+  ${catkin_LIBRARIES}
+)
+target_link_libraries(
+  grinder
+  ${catkin_LIBRARIES}
+)
+target_link_libraries(
+  dataRecorder
+  ${catkin_LIBRARIES}
+)
+target_link_libraries(
+  parameterEstimate
+  ${catkin_LIBRARIES}
+)
+target_link_libraries(
+  collision_detect_simple
+  ${catkin_LIBRARIES}
+)
+target_link_libraries(
+  grinder_newmethod
+  ${catkin_LIBRARIES}
+)
+target_link_libraries(
+  zxw_learningNoCollision
+  ${catkin_LIBRARIES}
+)
+target_link_libraries(
+  getSensorData
+  ${catkin_LIBRARIES}
+)
+target_link_libraries(
+  grindBySensor
   ${catkin_LIBRARIES}
 )
 
-target_link_libraries(
-  left_yyf_moveForce
-  ${catkin_LIBRARIES}
-)
 
 
 add_dependencies(
-  left_node
+  node
   ${catkin_EXPORTED_TARGETS}
 )
-
 add_dependencies(
-  left_yyf_moveForce
+  vel_control
   ${catkin_EXPORTED_TARGETS}
 )
-
+add_dependencies(
+  collision_detect
+  ${catkin_EXPORTED_TARGETS}
+)
+add_dependencies(
+  grinder
+  ${catkin_EXPORTED_TARGETS}
+)
+add_dependencies(
+  dataRecorder
+  ${catkin_EXPORTED_TARGETS}
+)
+add_dependencies(
+  parameterEstimate
+  ${catkin_EXPORTED_TARGETS}
+)
+add_dependencies(
+  collision_detect_simple
+  ${catkin_EXPORTED_TARGETS}
+)
+add_dependencies(
+  grinder_newmethod
+  ${catkin_EXPORTED_TARGETS}
+)
+add_dependencies(
+  zxw_learningNoCollision
+  ${catkin_EXPORTED_TARGETS}
+)
+add_dependencies(
+  getSensorData
+  ${catkin_EXPORTED_TARGETS}
+)
+add_dependencies(
+  grindBySensor
+  ${catkin_EXPORTED_TARGETS}
+)
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
 ## target back to the shorter version for ease of user use

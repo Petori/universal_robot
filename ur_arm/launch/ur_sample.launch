@@ -1,6 +1,6 @@
 <launch>
 
-	<node pkg="ur_arm_left" type="left_node" name="ur_arm_left" output="screen">
+	<node pkg="ur_arm" type="node" name="ur_arm" output="screen">
 		<!--<param name="homing_joint_pos1" type="double" value="0" />
 		<param name="homing_joint_pos2" type="double" value="-1.57" />
 		<param name="homing_joint_pos3" type="double" value="0" />
