@@ -16,6 +16,7 @@
 #include <cstdlib>
 #include <signal.h>   // deal with the "ctrl + C"
 #include "netft_utils/SetBias.h"
+#include <queue>
 
 using std::cout;
 using std::endl;
