@@ -90,7 +90,8 @@ void recordJointStateToTxt(sensor_msgs::JointState curState)
     fout1<<"header:"<<std::endl;
     fout1<<"  seq: "<<"000000"<<std::endl;
     fout1<<"  stamp:"<<std::endl;
-    fout1<<"    secs: "<<ros::Time::now()<<std::endl;
+    //fout1<<"    secs: "<<ros::Time::now()<<std::endl;
+    fout1<<"    secs: "<<curState.header.stamp<<std::endl;
     fout1<<"    nsecs: "<<"000000"<<std::endl;
     fout1<<"  frame_id: \'\'"<<std::endl;
 

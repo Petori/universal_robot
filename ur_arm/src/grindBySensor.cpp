@@ -20,10 +20,11 @@
 
 using std::cout;
 using std::endl;
+using std::queue;
 
 // Global Variables
 std::ofstream fout1("data/jointsRecord.txt");
-std::vector<double> curPos;
+sensor_msgs::JointState jointState;
 geometry_msgs::Twist velFoward;
 geometry_msgs::Twist velBack;
 geometry_msgs::Twist velMove;
@@ -31,28 +32,37 @@ geometry_msgs::Twist velMoveReverse;
 geometry_msgs::Twist velStop;
 geometry_msgs::WrenchStamped wrenchBias;
 geometry_msgs::WrenchStamped wrenchRaw;
-geometry_msgs::WrenchStamped wrenchReal;
 bool collisionHappen = false;
 bool rule = false;// the collision judging rule.
 ur_arm::Joints torque;
 double collisionForce = 0;
 double collisonThreshold = 3;
+double stepCoefficient = 1;
+struct datapack
+{
+    sensor_msgs::JointState robotState;
+    geometry_msgs::WrenchStamped sensorData;
+    double forceAll;
+};
 
 // Function definition
 void jointStateGet(sensor_msgs::JointState curState);
-void exTorGet(geometry_msgs::WrenchStamped awrench);// Judge if collision happens and compute newVel
+void exTorGet(geometry_msgs::WrenchStamped awrench);// Judge if collision happens and calculate newVel
 void setVelFoward();
 void setVelBack();
 void setVelMove();
 void setVelMoveReverse();
 void setVelStop();
-void recordPointInfo(std::vector<double> pos, geometry_msgs::WrenchStamped awrench);
+void recordPointInfo(queue<datapack> pp);
 geometry_msgs::WrenchStamped wrenchSubstract(geometry_msgs::WrenchStamped awrench1, geometry_msgs::WrenchStamped awrench2);
+datapack packAssign(sensor_msgs::JointState js, geometry_msgs::WrenchStamped ws, double db);
+double calculateStep(queue<datapack> qq, double cc);
 void Stop(int signo)
 {
     printf("oops! You stopped the program!\n");
     _exit(0);
 }
+
 
 // Main
 int main(int argc, char **argv)
@@ -82,12 +92,18 @@ int main(int argc, char **argv)
 
   bool rule = false;
   int testPointNum = 25;
+  queue<datapack> queue20;
+  datapack tempPack;
+  sensor_msgs::JointState nowState;
+  geometry_msgs::WrenchStamped nowWrench;
 
 //  double distanceInterval = 0.04; So the move time is 2s.
   signal(SIGINT, Stop);// deal with the "ctrl + C"
 
   for(int i=0;i<testPointNum;i++)
   {
+      queue<datapack> empty;
+      queue20 = empty;
       rule = false;
       if(ros::service::call("/bias",bias))
           {
@@ -102,24 +118,46 @@ int main(int argc, char **argv)
       while(!rule&&ros::ok())
       {
           //wrenchReal = wrenchSubstract(wrenchRaw, wrenchBias);
-          wrenchReal = wrenchRaw;
-          a = wrenchReal.wrench.force.x;
-          b = wrenchReal.wrench.force.y;
-          c = wrenchReal.wrench.force.z;
+          nowWrench = wrenchRaw;
+          nowState = jointState;
+
+          a = nowWrench.wrench.force.x;
+          b = nowWrench.wrench.force.y;
+          c = nowWrench.wrench.force.z;
           collisionForce = sqrt(a*a + b*b + c*c);
           rule = (collisionForce>collisonThreshold);
-      }
-      recordPointInfo(curPos, wrenchReal);
-      ROS_INFO("I got [%d] point.",i+1);
-      vel_pub.publish(velBack);
-      usleep(500000);
-      if (i == testPointNum-1)
+          tempPack = packAssign(nowState,nowWrench,collisionForce);
+          if(queue20.size()>10)
           {
+              queue20.pop();
+          }
+          queue20.push(tempPack);
+      }
+      vel_pub.publish(velBack);
+      for(int n=0;n<9;n++)
+      {
+          nowWrench = wrenchRaw;
+          nowState = jointState;
+
+          a = nowWrench.wrench.force.x;
+          b = nowWrench.wrench.force.y;
+          c = nowWrench.wrench.force.z;
+          collisionForce = sqrt(a*a + b*b + c*c);
+          tempPack = packAssign(nowState,nowWrench,collisionForce);
+          queue20.push(tempPack);
+      }
+      usleep(500000);
+      double movetime;
+      recordPointInfo(queue20);
+      movetime = calculateStep(queue20,stepCoefficient);
+      ROS_INFO("I got [%d] point.",i+1);
+      if (i == testPointNum-1)
+      {
           vel_pub.publish(velStop);
           break;
       }
       vel_pub.publish(velMove);
-      sleep(1);
+      usleep(movetime*1000000);
       vel_pub.publish(velStop);
       sleep(1);
   }
@@ -250,25 +288,35 @@ void setVelStop()
 void jointStateGet(sensor_msgs::JointState curState)
 {
     // After test, I know that this function is called 125 times per second in real robot connection.
-    curPos = curState.position;
+    jointState = curState;
 }
 
-void recordPointInfo(std::vector<double> pos, geometry_msgs::WrenchStamped awrench)
+void recordPointInfo(queue<datapack> pp)
 {
-    fout1<<ros::Time::now()<<",";
-    fout1<<pos[0]<<", ";
-    fout1<<pos[1]<<", ";
-    fout1<<pos[2]<<", ";
-    fout1<<pos[3]<<", ";
-    fout1<<pos[4]<<", ";
-    fout1<<pos[5]<<",";
-    fout1<<awrench.wrench.force.x<<",";
-    fout1<<awrench.wrench.force.y<<",";
-    fout1<<awrench.wrench.force.z<<",";
-    fout1<<awrench.wrench.torque.x<<",";
-    fout1<<awrench.wrench.torque.y<<",";
-    fout1<<awrench.wrench.torque.z;
-    fout1<<std::endl;
+    int size;
+    size = pp.size();
+    for(int i=0;i<size;i++)
+    {
+        datapack dp;
+        dp = pp.front();
+        pp.pop();
+        if(dp.forceAll>collisonThreshold)
+        {
+            fout1<<dp.robotState.header.stamp<<",";
+            for(int j=0;j<6;j++)
+            {
+                fout1<<dp.robotState.position[j]<<",";
+            }
+            fout1<<dp.sensorData.wrench.force.x<<",";
+            fout1<<dp.sensorData.wrench.force.y<<",";
+            fout1<<dp.sensorData.wrench.force.z<<",";
+            fout1<<dp.sensorData.wrench.torque.x<<",";
+            fout1<<dp.sensorData.wrench.torque.y<<",";
+            fout1<<dp.sensorData.wrench.torque.z<<",";
+            fout1<<dp.forceAll<<endl;
+            break;
+        }
+    }
 }
 
 geometry_msgs::WrenchStamped wrenchSubstract(geometry_msgs::WrenchStamped awrench1, geometry_msgs::WrenchStamped awrench2)
@@ -284,4 +332,66 @@ geometry_msgs::WrenchStamped wrenchSubstract(geometry_msgs::WrenchStamped awrenc
     result.wrench.torque.z = awrench1.wrench.torque.z - awrench2.wrench.torque.z;
 
     return result;
+}
+
+datapack packAssign(sensor_msgs::JointState js, geometry_msgs::WrenchStamped ws, double db)
+{
+    datapack a;
+    a.robotState = js;
+    a.sensorData = ws;
+    a.forceAll = db;
+    return a;
+}
+
+double calculateStep(queue<datapack> qq, double cc)
+{
+    queue<datapack> pp;
+    pp = qq;
+
+    int size;
+    double firstpass;
+    double firstpassPosition;
+    ur_arm::PoseMatrix pose;
+    for(int i=0;i<size;i++)
+    {
+        datapack dp;
+        dp = pp.front();
+        pp.pop();
+        if(dp.forceAll>collisonThreshold)
+        {
+            firstpass = dp.forceAll;
+            pose = fKine(dp.robotState.position);
+            firstpassPosition = sqrt(pose.p[0]*pose.p[0]+pose.p[1]*pose.p[1]+pose.p[2]*pose.p[2]);
+            break;
+        }
+    }
+
+    int sizenow;
+    sizenow = pp.size();
+    double maxforce;
+    double maxPosition;
+    double lastForce = firstpass;
+    bool increase = true;
+    for(int i=0;i<sizenow;i++)
+    {
+        datapack dp;
+        dp = pp.front();
+        pp.pop();
+        if(dp.forceAll>lastForce)
+        {            increase = true;        }
+        else
+        {            increase = false;        }
+        if(increase == false)
+        {
+            maxforce = dp.forceAll;
+            pose = fKine(dp.robotState.position);
+            maxPosition = sqrt(pose.p[0]*pose.p[0]+pose.p[1]*pose.p[1]+pose.p[2]*pose.p[2]);
+            break;
+        }
+    }
+    double movetime;
+    double virtualK;
+    virtualK = (maxforce-firstpass)/(maxPosition-firstpassPosition);
+    movetime = cc/virtualK;
+    return movetime;
 }
