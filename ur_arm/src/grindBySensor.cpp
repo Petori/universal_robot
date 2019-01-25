@@ -24,6 +24,7 @@ using std::queue;
 
 // Global Variables
 std::ofstream fout1("data/jointsRecord.txt");
+std::ofstream fout2("data/virtualStiffness.txt");
 sensor_msgs::JointState jointState;
 geometry_msgs::Twist velFoward;
 geometry_msgs::Twist velBack;
@@ -37,7 +38,15 @@ bool rule = false;// the collision judging rule.
 ur_arm::Joints torque;
 double collisionForce = 0;
 double collisonThreshold = 3;
-double stepCoefficient = 1;
+double stepCoefficient = 5000;
+//int testPointNum = 10;
+double exploreDistance = 0.9;
+double nowDistance = 0;
+double moveSpeed = 0.03;
+double moveReverseSpeed = 0.05;
+double exploreSpeed = 0.01;
+double backSpeed = 0.05;
+int explorePointNum = 0;
 struct datapack
 {
     sensor_msgs::JointState robotState;
@@ -53,7 +62,7 @@ void setVelBack();
 void setVelMove();
 void setVelMoveReverse();
 void setVelStop();
-void recordPointInfo(queue<datapack> pp);
+void recordPointInfo(queue<datapack> qq);
 geometry_msgs::WrenchStamped wrenchSubstract(geometry_msgs::WrenchStamped awrench1, geometry_msgs::WrenchStamped awrench2);
 datapack packAssign(sensor_msgs::JointState js, geometry_msgs::WrenchStamped ws, double db);
 double calculateStep(queue<datapack> qq, double cc);
@@ -91,7 +100,6 @@ int main(int argc, char **argv)
   setVelStop();
 
   bool rule = false;
-  int testPointNum = 25;
   queue<datapack> queue20;
   datapack tempPack;
   sensor_msgs::JointState nowState;
@@ -100,8 +108,9 @@ int main(int argc, char **argv)
 //  double distanceInterval = 0.04; So the move time is 2s.
   signal(SIGINT, Stop);// deal with the "ctrl + C"
 
-  for(int i=0;i<testPointNum;i++)
+  while((0.5*nowDistance)<exploreDistance)
   {
+      explorePointNum++;
       queue<datapack> empty;
       queue20 = empty;
       rule = false;
@@ -134,7 +143,8 @@ int main(int argc, char **argv)
           queue20.push(tempPack);
       }
       vel_pub.publish(velBack);
-      for(int n=0;n<9;n++)
+      // 注意这个循环必须延时，不然采集不到力数据
+      for(int n=0;n<50;n++)
       {
           nowWrench = wrenchRaw;
           nowState = jointState;
@@ -145,25 +155,35 @@ int main(int argc, char **argv)
           collisionForce = sqrt(a*a + b*b + c*c);
           tempPack = packAssign(nowState,nowWrench,collisionForce);
           queue20.push(tempPack);
+          usleep(8000);
       }
-      usleep(500000);
+      usleep(100000);
+      vel_pub.publish(velStop);
+      usleep(400000);
+      ROS_INFO("I got [%d] point.",explorePointNum);
+
       double movetime;
       recordPointInfo(queue20);
+      int tempsize;
+      tempsize = queue20.size();
       movetime = calculateStep(queue20,stepCoefficient);
-      ROS_INFO("I got [%d] point.",i+1);
-      if (i == testPointNum-1)
-      {
-          vel_pub.publish(velStop);
+
+      nowDistance = nowDistance + movetime*moveSpeed;
+      // 这里，加减速导致实际运动距离变小
+      if((0.5*nowDistance)>exploreDistance)
+          {
           break;
       }
       vel_pub.publish(velMove);
       usleep(movetime*1000000);
       vel_pub.publish(velStop);
       sleep(1);
+      nowDistance = nowDistance + movetime*moveSpeed;
   }
-  sleep(1);
   vel_pub.publish(velMoveReverse);
-  sleep(testPointNum-1);
+  int backTime;
+  backTime = exploreDistance/moveReverseSpeed;
+  sleep(backTime);
   vel_pub.publish(velStop);
   ROS_INFO("Exploration finished.");
   ROS_INFO("I have generated the jointsRecord.txt file.");
@@ -182,7 +202,7 @@ void setVelFoward()
     double vx,vy,vz;
     double wx,wy,wz;
     vx = 0;
-    vy = -0.005;
+    vy = -exploreSpeed;
     vz = 0;
     wx = 0;
     wy = 0;
@@ -204,7 +224,7 @@ void setVelBack()
     double vx,vy,vz;
     double wx,wy,wz;
     vx = 0;
-    vy = 0.05;
+    vy = backSpeed;
     vz = 0;
     wx = 0;
     wy = 0;
@@ -225,7 +245,7 @@ void setVelMove()
     geometry_msgs::Vector3 angular;
     double vx,vy,vz;
     double wx,wy,wz;
-    vx = 0.005;
+    vx = moveSpeed;
     vy = 0;
     vz = 0;
     wx = 0;
@@ -247,7 +267,7 @@ void setVelMoveReverse()
     geometry_msgs::Vector3 angular;
     double vx,vy,vz;
     double wx,wy,wz;
-    vx = -0.005;
+    vx = -moveReverseSpeed;
     vy = 0;
     vz = 0;
     wx = 0;
@@ -291,8 +311,10 @@ void jointStateGet(sensor_msgs::JointState curState)
     jointState = curState;
 }
 
-void recordPointInfo(queue<datapack> pp)
+void recordPointInfo(queue<datapack> qq)
 {
+    queue<datapack> pp;
+    pp = qq;
     int size;
     size = pp.size();
     for(int i=0;i<size;i++)
@@ -370,28 +392,31 @@ double calculateStep(queue<datapack> qq, double cc)
     sizenow = pp.size();
     double maxforce;
     double maxPosition;
-    double lastForce = firstpass;
-    bool increase = true;
+    double lastForce = 0;
+    datapack lastdp;
+    ur_arm::PoseMatrix pose2;
+
     for(int i=0;i<sizenow;i++)
     {
         datapack dp;
         dp = pp.front();
         pp.pop();
         if(dp.forceAll>lastForce)
-        {            increase = true;        }
-        else
-        {            increase = false;        }
-        if(increase == false)
         {
-            maxforce = dp.forceAll;
-            pose = fKine(dp.robotState.position);
-            maxPosition = sqrt(pose.p[0]*pose.p[0]+pose.p[1]*pose.p[1]+pose.p[2]*pose.p[2]);
-            break;
+            lastdp = dp;
+            lastForce = lastdp.forceAll;
         }
     }
+    maxforce = lastdp.forceAll;
+    pose2 = fKine(lastdp.robotState.position);
+    maxPosition = sqrt(pose2.p[0]*pose2.p[0]+pose2.p[1]*pose2.p[1]+pose2.p[2]*pose2.p[2]);
     double movetime;
     double virtualK;
-    virtualK = (maxforce-firstpass)/(maxPosition-firstpassPosition);
+    virtualK = fabs((maxforce-firstpass)/(maxPosition-firstpassPosition));
     movetime = cc/virtualK;
+    fout2<<virtualK<<endl;
+
+    ROS_INFO("Virtual stiffness in this point is [%lf].",virtualK);
+    ROS_INFO("Move time is [%lf] s.",movetime);
     return movetime;
 }
