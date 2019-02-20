@@ -38,7 +38,7 @@ bool rule = false;// the collision judging rule.
 ur_arm::Joints torque;
 double collisionForce = 0;
 double collisonThreshold = 3;
-double stepCoefficient = 5000;
+double stepCoefficient = 1;
 //int testPointNum = 10;
 double exploreDistance = 0.9;
 double nowDistance = 0;
@@ -93,6 +93,10 @@ int main(int argc, char **argv)
   bias.request.forceMax = 50;
   bias.request.torqueMax = 10;
 
+  // for program end judging
+  ur_arm::PoseMatrix startpose;
+  startpose = fKine(jointState.position);
+
   setVelFoward();
   setVelBack();
   setVelMove();
@@ -108,7 +112,7 @@ int main(int argc, char **argv)
 //  double distanceInterval = 0.04; So the move time is 2s.
   signal(SIGINT, Stop);// deal with the "ctrl + C"
 
-  while((0.5*nowDistance)<exploreDistance)
+  while(nowDistance<exploreDistance)
   {
       explorePointNum++;
       queue<datapack> empty;
@@ -178,7 +182,12 @@ int main(int argc, char **argv)
       usleep(movetime*1000000);
       vel_pub.publish(velStop);
       sleep(1);
-      nowDistance = nowDistance + movetime*moveSpeed;
+      ur_arm::PoseMatrix nowPose;
+      nowPose = fKine(jointState.position);
+
+      nowDistance = sqrt((nowPose.p[0] - startpose.p[0])*(nowPose.p[0] - startpose.p[0])\
+              + (nowPose.p[1] - startpose.p[1])*(nowPose.p[1] - startpose.p[1])\
+              + (nowPose.p[2] - startpose.p[2])*(nowPose.p[2] - startpose.p[2]));
   }
   vel_pub.publish(velMoveReverse);
   int backTime;
@@ -413,7 +422,11 @@ double calculateStep(queue<datapack> qq, double cc)
     double movetime;
     double virtualK;
     virtualK = fabs((maxforce-firstpass)/(maxPosition-firstpassPosition));
-    movetime = cc/virtualK;
+    movetime = cc*(-0.000096*virtualK + 2.02);
+    if(movetime < 0.1)
+        movetime = 0.1;
+    if(movetime > 2)
+        movetime = 2;
     fout2<<virtualK<<endl;
 
     ROS_INFO("Virtual stiffness in this point is [%lf].",virtualK);
