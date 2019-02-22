@@ -40,11 +40,11 @@ double collisionForce = 0;
 double collisonThreshold = 3;
 double stepCoefficient = 1;
 //int testPointNum = 10;
-double exploreDistance = 0.9;
+double exploreDistance = 0.45;
 double nowDistance = 0;
 double moveSpeed = 0.03;
 double moveReverseSpeed = 0.05;
-double exploreSpeed = 0.01;
+double exploreSpeed = 0.02;
 double backSpeed = 0.05;
 int explorePointNum = 0;
 struct datapack
@@ -163,7 +163,7 @@ int main(int argc, char **argv)
       }
       usleep(100000);
       vel_pub.publish(velStop);
-      usleep(400000);
+      usleep(200000);
       ROS_INFO("I got [%d] point.",explorePointNum);
 
       double movetime;
@@ -181,7 +181,7 @@ int main(int argc, char **argv)
       vel_pub.publish(velMove);
       usleep(movetime*1000000);
       vel_pub.publish(velStop);
-      sleep(1);
+      usleep(200000);
       ur_arm::PoseMatrix nowPose;
       nowPose = fKine(jointState.position);
 
@@ -422,11 +422,11 @@ double calculateStep(queue<datapack> qq, double cc)
     double movetime;
     double virtualK;
     virtualK = fabs((maxforce-firstpass)/(maxPosition-firstpassPosition));
-    movetime = cc*(-0.000096*virtualK + 2.02);
+    movetime = cc*(-0.000114*virtualK + 1.012);
     if(movetime < 0.1)
         movetime = 0.1;
-    if(movetime > 2)
-        movetime = 2;
+    if(movetime > 1)
+        movetime = 1;
     fout2<<virtualK<<endl;
 
     ROS_INFO("Virtual stiffness in this point is [%lf].",virtualK);
