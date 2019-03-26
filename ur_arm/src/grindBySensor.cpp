@@ -37,15 +37,15 @@ bool collisionHappen = false;
 bool rule = false;// the collision judging rule.
 ur_arm::Joints torque;
 double collisionForce = 0;
-double collisonThreshold = 3;
+double collisonThreshold = 2;
 double stepCoefficient = 1;
 //int testPointNum = 10;
-double exploreDistance = 0.45;
+double exploreDistance = 0.5;
 double nowDistance = 0;
-double moveSpeed = 0.03;
+double moveSpeed = 0.05;
 double moveReverseSpeed = 0.05;
 double exploreSpeed = 0.02;
-double backSpeed = 0.05;
+double backSpeed = 0.07;
 int explorePointNum = 0;
 struct datapack
 {
@@ -422,11 +422,12 @@ double calculateStep(queue<datapack> qq, double cc)
     double movetime;
     double virtualK;
     virtualK = fabs((maxforce-firstpass)/(maxPosition-firstpassPosition));
-    movetime = cc*(-0.000114*virtualK + 1.012);
-    if(movetime < 0.1)
-        movetime = 0.1;
+    movetime = cc*(-0.0000625*virtualK + 1.125);
+    if(movetime < 0.5)
+        movetime = 0.5;
     if(movetime > 1)
         movetime = 1;
+    //movetime = 1;
     fout2<<virtualK<<endl;
 
     ROS_INFO("Virtual stiffness in this point is [%lf].",virtualK);

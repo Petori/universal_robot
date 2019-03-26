@@ -1,0 +1,626 @@
+#!/usr/bin/env python
+import time
+import roslib; roslib.load_manifest('ur_modern_driver')
+import rospy
+import actionlib
+import sys
+import subprocess
+import os
+from control_msgs.msg import *
+from trajectory_msgs.msg import *
+from sensor_msgs.msg import JointState
+from math import pi
+
+JOINT_NAMES = ['shoulder_pan_joint', 'shoulder_lift_joint', 'elbow_joint', 'wrist_1_joint', 'wrist_2_joint', 'wrist_3_joint']
+
+Q1 = [1.8322,-1.3519,2.0998,-2.329,-1.5787,1.8286]
+Q2 = [1.8363,-1.3499,2.0972,-2.3283,-1.5787,1.8326]
+Q3 = [1.8383,-1.3489,2.0958,-2.328,-1.5787,1.8347]
+Q4 = [1.8403,-1.3479,2.0945,-2.3277,-1.5788,1.8367]
+Q5 = [1.8424,-1.3469,2.0931,-2.3273,-1.5788,1.8387]
+Q6 = [1.8444,-1.3459,2.0918,-2.327,-1.5788,1.8407]
+Q7 = [1.8464,-1.3449,2.0904,-2.3267,-1.5788,1.8428]
+Q8 = [1.8484,-1.3438,2.0891,-2.3263,-1.5789,1.8448]
+Q9 = [1.8504,-1.3428,2.0877,-2.326,-1.5789,1.8468]
+Q10 = [1.8524,-1.3418,2.0864,-2.3256,-1.5789,1.8488]
+Q11 = [1.8544,-1.3408,2.085,-2.3253,-1.5789,1.8508]
+Q12 = [1.8564,-1.3397,2.0836,-2.325,-1.579,1.8528]
+Q13 = [1.8584,-1.3387,2.0822,-2.3246,-1.579,1.8548]
+Q14 = [1.8604,-1.3377,2.0808,-2.3243,-1.579,1.8568]
+Q15 = [1.8623,-1.3366,2.0795,-2.3239,-1.579,1.8588]
+Q16 = [1.8643,-1.3356,2.0781,-2.3235,-1.5791,1.8607]
+Q17 = [1.8663,-1.3345,2.0767,-2.3232,-1.5791,1.8627]
+Q18 = [1.8683,-1.3335,2.0753,-2.3228,-1.5791,1.8647]
+Q19 = [1.8702,-1.3324,2.0738,-2.3225,-1.5791,1.8667]
+Q20 = [1.8722,-1.3314,2.0724,-2.3221,-1.5792,1.8687]
+Q21 = [1.8742,-1.3303,2.071,-2.3217,-1.5792,1.8706]
+Q22 = [1.8761,-1.3293,2.0696,-2.3214,-1.5792,1.8726]
+Q23 = [1.8781,-1.3282,2.0682,-2.321,-1.5792,1.8745]
+Q24 = [1.88,-1.3272,2.0667,-2.3206,-1.5793,1.8765]
+Q25 = [1.882,-1.3261,2.0653,-2.3202,-1.5793,1.8785]
+Q26 = [1.8839,-1.325,2.0638,-2.3199,-1.5793,1.8804]
+Q27 = [1.8859,-1.324,2.0624,-2.3195,-1.5793,1.8824]
+Q28 = [1.8878,-1.3229,2.0609,-2.3191,-1.5793,1.8843]
+Q29 = [1.8897,-1.3218,2.0595,-2.3187,-1.5794,1.8862]
+Q30 = [1.8917,-1.3207,2.058,-2.3183,-1.5794,1.8882]
+Q31 = [1.8936,-1.3197,2.0566,-2.3179,-1.5794,1.8901]
+Q32 = [1.8955,-1.3186,2.0551,-2.3175,-1.5794,1.892]
+Q33 = [1.8974,-1.3175,2.0536,-2.3171,-1.5795,1.894]
+Q34 = [1.8993,-1.3164,2.0521,-2.3167,-1.5795,1.8959]
+Q35 = [1.9013,-1.3153,2.0506,-2.3163,-1.5795,1.8978]
+Q36 = [1.9032,-1.3142,2.0492,-2.3159,-1.5795,1.8997]
+Q37 = [1.9051,-1.3131,2.0477,-2.3155,-1.5796,1.9016]
+Q38 = [1.907,-1.312,2.0462,-2.3151,-1.5796,1.9035]
+Q39 = [1.9089,-1.311,2.0447,-2.3147,-1.5796,1.9054]
+Q40 = [1.9108,-1.3099,2.0431,-2.3143,-1.5796,1.9073]
+Q41 = [1.9127,-1.3088,2.0416,-2.3139,-1.5797,1.9092]
+Q42 = [1.9145,-1.3076,2.0401,-2.3135,-1.5797,1.9111]
+Q43 = [1.9164,-1.3065,2.0386,-2.313,-1.5797,1.913]
+Q44 = [1.9183,-1.3054,2.0371,-2.3126,-1.5797,1.9149]
+Q45 = [1.9202,-1.3043,2.0355,-2.3122,-1.5798,1.9168]
+Q46 = [1.9221,-1.3032,2.034,-2.3118,-1.5798,1.9187]
+Q47 = [1.9239,-1.3021,2.0324,-2.3113,-1.5798,1.9206]
+Q48 = [1.9258,-1.301,2.0309,-2.3109,-1.5798,1.9224]
+Q49 = [1.9277,-1.2999,2.0293,-2.3105,-1.5799,1.9243]
+Q50 = [1.9295,-1.2987,2.0278,-2.31,-1.5799,1.9262]
+Q51 = [1.9314,-1.2976,2.0262,-2.3096,-1.5799,1.928]
+Q52 = [1.9332,-1.2965,2.0247,-2.3091,-1.5799,1.9299]
+Q53 = [1.9351,-1.2954,2.0231,-2.3087,-1.58,1.9317]
+Q54 = [1.9369,-1.2942,2.0215,-2.3082,-1.58,1.9336]
+Q55 = [1.9388,-1.2931,2.0199,-2.3078,-1.58,1.9354]
+Q56 = [1.9406,-1.292,2.0184,-2.3073,-1.58,1.9373]
+Q57 = [1.9425,-1.2908,2.0168,-2.3069,-1.5801,1.9391]
+Q58 = [1.9443,-1.2897,2.0152,-2.3064,-1.5801,1.941]
+Q59 = [1.9461,-1.2885,2.0136,-2.306,-1.5801,1.9428]
+Q60 = [1.9479,-1.2874,2.012,-2.3055,-1.5801,1.9446]
+Q61 = [1.9498,-1.2863,2.0104,-2.305,-1.5802,1.9465]
+Q62 = [1.9516,-1.2851,2.0088,-2.3046,-1.5802,1.9483]
+Q63 = [1.9534,-1.284,2.0071,-2.3041,-1.5802,1.9501]
+Q64 = [1.9552,-1.2828,2.0055,-2.3036,-1.5802,1.9519]
+Q65 = [1.957,-1.2817,2.0039,-2.3031,-1.5803,1.9537]
+Q66 = [1.9588,-1.2805,2.0023,-2.3027,-1.5803,1.9556]
+Q67 = [1.9606,-1.2793,2.0006,-2.3022,-1.5803,1.9574]
+Q68 = [1.9624,-1.2782,1.999,-2.3017,-1.5803,1.9592]
+Q69 = [1.9642,-1.277,1.9973,-2.3012,-1.5804,1.961]
+Q70 = [1.966,-1.2759,1.9957,-2.3007,-1.5804,1.9628]
+Q71 = [1.9678,-1.2747,1.994,-2.3002,-1.5804,1.9646]
+Q72 = [1.9696,-1.2735,1.9924,-2.2997,-1.5804,1.9663]
+Q73 = [1.9713,-1.2724,1.9907,-2.2993,-1.5805,1.9681]
+Q74 = [1.9731,-1.2712,1.989,-2.2988,-1.5805,1.9699]
+Q75 = [1.9749,-1.27,1.9874,-2.2983,-1.5805,1.9717]
+Q76 = [1.9767,-1.2688,1.9857,-2.2977,-1.5805,1.9735]
+Q77 = [1.9784,-1.2677,1.984,-2.2972,-1.5805,1.9752]
+Q78 = [1.9802,-1.2665,1.9823,-2.2967,-1.5806,1.977]
+Q79 = [1.982,-1.2653,1.9806,-2.2962,-1.5806,1.9788]
+Q80 = [1.9837,-1.2641,1.9789,-2.2957,-1.5806,1.9805]
+Q81 = [1.9855,-1.2629,1.9773,-2.2952,-1.5806,1.9823]
+Q82 = [1.9872,-1.2617,1.9755,-2.2947,-1.5807,1.984]
+Q83 = [1.9889,-1.2605,1.9738,-2.2941,-1.5807,1.9858]
+Q84 = [1.9907,-1.2593,1.9721,-2.2936,-1.5807,1.9875]
+Q85 = [1.9924,-1.2582,1.9704,-2.2931,-1.5807,1.9893]
+Q86 = [1.9942,-1.257,1.9687,-2.2926,-1.5808,1.991]
+Q87 = [1.9959,-1.2558,1.967,-2.292,-1.5808,1.9928]
+Q88 = [1.9976,-1.2546,1.9652,-2.2915,-1.5808,1.9945]
+Q89 = [1.9993,-1.2534,1.9635,-2.291,-1.5808,1.9962]
+Q90 = [2.0011,-1.2522,1.9618,-2.2904,-1.5809,1.9979]
+Q91 = [2.0028,-1.2509,1.96,-2.2899,-1.5809,1.9997]
+Q92 = [2.0045,-1.2497,1.9583,-2.2893,-1.5809,2.0014]
+Q93 = [2.0062,-1.2485,1.9565,-2.2888,-1.5809,2.0031]
+Q94 = [2.0079,-1.2473,1.9547,-2.2882,-1.581,2.0048]
+Q95 = [2.0096,-1.2461,1.953,-2.2877,-1.581,2.0065]
+Q96 = [2.0113,-1.2449,1.9512,-2.2871,-1.581,2.0082]
+Q97 = [2.013,-1.2437,1.9494,-2.2866,-1.581,2.0099]
+Q98 = [2.0147,-1.2425,1.9477,-2.286,-1.581,2.0116]
+Q99 = [2.0164,-1.2412,1.9459,-2.2854,-1.5811,2.0133]
+Q100 = [2.0181,-1.24,1.9441,-2.2849,-1.5811,2.015]
+Q101 = [2.0198,-1.2388,1.9423,-2.2843,-1.5811,2.0167]
+Q102 = [2.0214,-1.2376,1.9405,-2.2837,-1.5811,2.0184]
+Q103 = [2.0231,-1.2363,1.9387,-2.2832,-1.5812,2.0201]
+Q104 = [2.0248,-1.2351,1.9369,-2.2826,-1.5812,2.0218]
+Q105 = [2.0265,-1.2339,1.9351,-2.282,-1.5812,2.0234]
+Q106 = [2.0281,-1.2326,1.9333,-2.2814,-1.5812,2.0251]
+Q107 = [2.0298,-1.2314,1.9315,-2.2808,-1.5813,2.0268]
+Q108 = [2.0314,-1.2302,1.9297,-2.2803,-1.5813,2.0284]
+Q109 = [2.0331,-1.2289,1.9278,-2.2797,-1.5813,2.0301]
+Q110 = [2.0347,-1.2277,1.926,-2.2791,-1.5813,2.0317]
+Q111 = [2.0364,-1.2264,1.9242,-2.2785,-1.5814,2.0334]
+Q112 = [2.038,-1.2252,1.9223,-2.2779,-1.5814,2.0351]
+Q113 = [2.0397,-1.2239,1.9205,-2.2773,-1.5814,2.0367]
+Q114 = [2.0413,-1.2227,1.9186,-2.2767,-1.5814,2.0383]
+Q115 = [2.0429,-1.2214,1.9168,-2.2761,-1.5814,2.04]
+Q116 = [2.0446,-1.2202,1.9149,-2.2755,-1.5815,2.0416]
+Q117 = [2.0462,-1.2189,1.9131,-2.2748,-1.5815,2.0433]
+Q118 = [2.0478,-1.2177,1.9112,-2.2742,-1.5815,2.0449]
+Q119 = [2.0494,-1.2164,1.9093,-2.2736,-1.5815,2.0465]
+Q120 = [2.0511,-1.2151,1.9074,-2.273,-1.5816,2.0481]
+Q121 = [2.0527,-1.2139,1.9056,-2.2724,-1.5816,2.0498]
+Q122 = [2.0543,-1.2126,1.9037,-2.2717,-1.5816,2.0514]
+Q123 = [2.0559,-1.2114,1.9018,-2.2711,-1.5816,2.053]
+Q124 = [2.0575,-1.2101,1.8999,-2.2705,-1.5817,2.0546]
+Q125 = [2.0591,-1.2088,1.898,-2.2699,-1.5817,2.0562]
+Q126 = [2.0607,-1.2075,1.8961,-2.2692,-1.5817,2.0578]
+Q127 = [2.0623,-1.2063,1.8942,-2.2686,-1.5817,2.0594]
+Q128 = [2.0639,-1.205,1.8923,-2.2679,-1.5817,2.061]
+Q129 = [2.0655,-1.2037,1.8904,-2.2673,-1.5818,2.0626]
+Q130 = [2.067,-1.2024,1.8884,-2.2666,-1.5818,2.0642]
+Q131 = [2.0686,-1.2012,1.8865,-2.266,-1.5818,2.0658]
+Q132 = [2.0702,-1.1999,1.8846,-2.2653,-1.5818,2.0674]
+Q133 = [2.0718,-1.1986,1.8827,-2.2647,-1.5819,2.0689]
+Q134 = [2.0734,-1.1973,1.8807,-2.264,-1.5819,2.0705]
+Q135 = [2.0749,-1.196,1.8788,-2.2634,-1.5819,2.0721]
+Q136 = [2.0765,-1.1947,1.8768,-2.2627,-1.5819,2.0736]
+Q137 = [2.078,-1.1934,1.8749,-2.262,-1.582,2.0752]
+Q138 = [2.0796,-1.1922,1.8729,-2.2614,-1.582,2.0768]
+Q139 = [2.0812,-1.1909,1.871,-2.2607,-1.582,2.0783]
+Q140 = [2.0827,-1.1896,1.869,-2.26,-1.582,2.0799]
+Q141 = [2.0842,-1.1883,1.867,-2.2594,-1.582,2.0814]
+Q142 = [2.0858,-1.187,1.865,-2.2587,-1.5821,2.083]
+Q143 = [2.0873,-1.1857,1.8631,-2.258,-1.5821,2.0845]
+Q144 = [2.0889,-1.1844,1.8611,-2.2573,-1.5821,2.0861]
+Q145 = [2.0904,-1.1831,1.8591,-2.2566,-1.5821,2.0876]
+Q146 = [2.0919,-1.1817,1.8571,-2.2559,-1.5822,2.0892]
+Q147 = [2.0935,-1.1804,1.8551,-2.2552,-1.5822,2.0907]
+Q148 = [2.095,-1.1791,1.8531,-2.2545,-1.5822,2.0922]
+Q149 = [2.0965,-1.1778,1.8511,-2.2538,-1.5822,2.0938]
+Q150 = [2.098,-1.1765,1.8491,-2.2531,-1.5822,2.0953]
+Q151 = [2.0995,-1.1752,1.8471,-2.2524,-1.5823,2.0968]
+Q152 = [2.101,-1.1739,1.845,-2.2517,-1.5823,2.0983]
+Q153 = [2.1026,-1.1725,1.843,-2.251,-1.5823,2.0998]
+Q154 = [2.1041,-1.1712,1.841,-2.2503,-1.5823,2.1013]
+Q155 = [2.1056,-1.1699,1.839,-2.2496,-1.5824,2.1028]
+Q156 = [2.1071,-1.1686,1.8369,-2.2489,-1.5824,2.1043]
+Q157 = [2.1086,-1.1672,1.8349,-2.2482,-1.5824,2.1058]
+Q158 = [2.11,-1.1659,1.8328,-2.2474,-1.5824,2.1073]
+Q159 = [2.1115,-1.1646,1.8308,-2.2467,-1.5825,2.1088]
+Q160 = [2.113,-1.1633,1.8287,-2.246,-1.5825,2.1103]
+Q161 = [2.1145,-1.1619,1.8267,-2.2452,-1.5825,2.1118]
+Q162 = [2.116,-1.1606,1.8246,-2.2445,-1.5825,2.1133]
+Q163 = [2.1175,-1.1593,1.8225,-2.2438,-1.5825,2.1148]
+Q164 = [2.1189,-1.1579,1.8205,-2.243,-1.5826,2.1163]
+Q165 = [2.1204,-1.1566,1.8184,-2.2423,-1.5826,2.1177]
+Q166 = [2.1219,-1.1552,1.8163,-2.2415,-1.5826,2.1192]
+Q167 = [2.1233,-1.1539,1.8142,-2.2408,-1.5826,2.1207]
+Q168 = [2.1248,-1.1525,1.8121,-2.24,-1.5827,2.1221]
+Q169 = [2.1262,-1.1512,1.81,-2.2393,-1.5827,2.1236]
+Q170 = [2.1277,-1.1498,1.8079,-2.2385,-1.5827,2.1251]
+Q171 = [2.1291,-1.1485,1.8058,-2.2378,-1.5827,2.1265]
+Q172 = [2.1306,-1.1471,1.8037,-2.237,-1.5827,2.128]
+Q173 = [2.132,-1.1458,1.8016,-2.2362,-1.5828,2.1294]
+Q174 = [2.1335,-1.1444,1.7995,-2.2355,-1.5828,2.1309]
+Q175 = [2.1349,-1.1431,1.7973,-2.2347,-1.5828,2.1323]
+Q176 = [2.1363,-1.1417,1.7952,-2.2339,-1.5828,2.1338]
+Q177 = [2.1378,-1.1403,1.7931,-2.2331,-1.5829,2.1352]
+Q178 = [2.1392,-1.139,1.7909,-2.2324,-1.5829,2.1366]
+Q179 = [2.1406,-1.1376,1.7888,-2.2316,-1.5829,2.1381]
+Q180 = [2.1421,-1.1362,1.7866,-2.2308,-1.5829,2.1395]
+Q181 = [2.1435,-1.1349,1.7845,-2.23,-1.5829,2.1409]
+Q182 = [2.1449,-1.1335,1.7823,-2.2292,-1.583,2.1423]
+Q183 = [2.1463,-1.1321,1.7802,-2.2284,-1.583,2.1438]
+Q184 = [2.1477,-1.1308,1.778,-2.2276,-1.583,2.1452]
+Q185 = [2.1491,-1.1294,1.7758,-2.2268,-1.583,2.1466]
+Q186 = [2.1505,-1.128,1.7736,-2.226,-1.583,2.148]
+Q187 = [2.1519,-1.1266,1.7715,-2.2252,-1.5831,2.1494]
+Q188 = [2.1533,-1.1252,1.7693,-2.2244,-1.5831,2.1508]
+Q189 = [2.1547,-1.1239,1.7671,-2.2236,-1.5831,2.1522]
+Q190 = [2.1561,-1.1225,1.7649,-2.2228,-1.5831,2.1536]
+Q191 = [2.1575,-1.1211,1.7627,-2.222,-1.5832,2.155]
+Q192 = [2.1589,-1.1197,1.7605,-2.2211,-1.5832,2.1564]
+Q193 = [2.1603,-1.1183,1.7583,-2.2203,-1.5832,2.1578]
+Q194 = [2.1616,-1.1169,1.7561,-2.2195,-1.5832,2.1592]
+Q195 = [2.163,-1.1155,1.7538,-2.2187,-1.5832,2.1605]
+Q196 = [2.1644,-1.1141,1.7516,-2.2178,-1.5833,2.1619]
+Q197 = [2.1658,-1.1127,1.7494,-2.217,-1.5833,2.1633]
+Q198 = [2.1671,-1.1113,1.7472,-2.2161,-1.5833,2.1647]
+Q199 = [2.1685,-1.1099,1.7449,-2.2153,-1.5833,2.166]
+Q200 = [2.1699,-1.1085,1.7427,-2.2145,-1.5834,2.1674]
+Q201 = [2.1712,-1.1071,1.7404,-2.2136,-1.5834,2.1688]
+Q202 = [2.1726,-1.1057,1.7382,-2.2128,-1.5834,2.1701]
+Q203 = [2.1739,-1.1043,1.7359,-2.2119,-1.5834,2.1715]
+Q204 = [2.1753,-1.1029,1.7337,-2.2111,-1.5834,2.1729]
+Q205 = [2.1766,-1.1015,1.7314,-2.2102,-1.5835,2.1742]
+Q206 = [2.178,-1.1001,1.7291,-2.2093,-1.5835,2.1756]
+Q207 = [2.1793,-1.0986,1.7268,-2.2085,-1.5835,2.1769]
+Q208 = [2.1806,-1.0972,1.7246,-2.2076,-1.5835,2.1782]
+Q209 = [2.182,-1.0958,1.7223,-2.2067,-1.5835,2.1796]
+Q210 = [2.1833,-1.0944,1.72,-2.2059,-1.5836,2.1809]
+Q211 = [2.1846,-1.093,1.7177,-2.205,-1.5836,2.1823]
+Q212 = [2.186,-1.0915,1.7154,-2.2041,-1.5836,2.1836]
+Q213 = [2.1873,-1.0901,1.7131,-2.2032,-1.5836,2.1849]
+Q214 = [2.1886,-1.0887,1.7108,-2.2023,-1.5837,2.1863]
+Q215 = [2.1899,-1.0873,1.7085,-2.2014,-1.5837,2.1876]
+Q216 = [2.1912,-1.0858,1.7061,-2.2005,-1.5837,2.1889]
+Q217 = [2.1925,-1.0844,1.7038,-2.1996,-1.5837,2.1902]
+Q218 = [2.1939,-1.0829,1.7015,-2.1987,-1.5837,2.1915]
+Q219 = [2.1952,-1.0815,1.6991,-2.1978,-1.5838,2.1928]
+Q220 = [2.1965,-1.0801,1.6968,-2.1969,-1.5838,2.1941]
+Q221 = [2.1978,-1.0786,1.6945,-2.196,-1.5838,2.1955]
+Q222 = [2.1991,-1.0772,1.6921,-2.1951,-1.5838,2.1968]
+Q223 = [2.2004,-1.0757,1.6898,-2.1942,-1.5838,2.1981]
+Q224 = [2.2016,-1.0743,1.6874,-2.1933,-1.5839,2.1994]
+Q225 = [2.2029,-1.0728,1.685,-2.1924,-1.5839,2.2007]
+Q226 = [2.2042,-1.0714,1.6827,-2.1915,-1.5839,2.2019]
+Q227 = [2.2055,-1.0699,1.6803,-2.1905,-1.5839,2.2032]
+Q228 = [2.2068,-1.0685,1.6779,-2.1896,-1.584,2.2045]
+Q229 = [2.2081,-1.067,1.6755,-2.1887,-1.584,2.2058]
+Q230 = [2.2093,-1.0656,1.6731,-2.1877,-1.584,2.2071]
+Q231 = [2.2106,-1.0641,1.6707,-2.1868,-1.584,2.2084]
+Q232 = [2.2119,-1.0626,1.6683,-2.1859,-1.584,2.2096]
+Q233 = [2.2131,-1.0612,1.6659,-2.1849,-1.5841,2.2109]
+Q234 = [2.2144,-1.0597,1.6635,-2.184,-1.5841,2.2122]
+Q235 = [2.2157,-1.0582,1.6611,-2.183,-1.5841,2.2134]
+Q236 = [2.2169,-1.0568,1.6587,-2.1821,-1.5841,2.2147]
+Q237 = [2.2182,-1.0553,1.6563,-2.1811,-1.5841,2.216]
+Q238 = [2.2194,-1.0538,1.6538,-2.1801,-1.5842,2.2172]
+Q239 = [2.2207,-1.0523,1.6514,-2.1792,-1.5842,2.2185]
+Q240 = [2.2219,-1.0509,1.649,-2.1782,-1.5842,2.2197]
+Q241 = [2.2232,-1.0494,1.6465,-2.1772,-1.5842,2.221]
+Q242 = [2.2244,-1.0479,1.6441,-2.1763,-1.5842,2.2222]
+Q243 = [2.2257,-1.0464,1.6416,-2.1753,-1.5843,2.2235]
+Q244 = [2.2269,-1.0449,1.6391,-2.1743,-1.5843,2.2247]
+Q245 = [2.2281,-1.0434,1.6367,-2.1733,-1.5843,2.226]
+Q246 = [2.2294,-1.0419,1.6342,-2.1723,-1.5843,2.2272]
+Q247 = [2.2306,-1.0404,1.6317,-2.1714,-1.5844,2.2284]
+Q248 = [2.2318,-1.0389,1.6292,-2.1704,-1.5844,2.2297]
+Q249 = [2.233,-1.0374,1.6268,-2.1694,-1.5844,2.2309]
+Q250 = [2.2342,-1.0359,1.6243,-2.1684,-1.5844,2.2321]
+Q251 = [2.2355,-1.0344,1.6218,-2.1674,-1.5844,2.2333]
+Q252 = [2.2367,-1.0329,1.6193,-2.1664,-1.5845,2.2346]
+Q253 = [2.2379,-1.0314,1.6168,-2.1654,-1.5845,2.2358]
+Q254 = [2.2391,-1.0299,1.6142,-2.1643,-1.5845,2.237]
+Q255 = [2.2403,-1.0284,1.6117,-2.1633,-1.5845,2.2382]
+Q256 = [2.2415,-1.0269,1.6092,-2.1623,-1.5845,2.2394]
+Q257 = [2.2427,-1.0254,1.6067,-2.1613,-1.5846,2.2406]
+Q258 = [2.2439,-1.0239,1.6041,-2.1603,-1.5846,2.2418]
+Q259 = [2.2451,-1.0224,1.6016,-2.1592,-1.5846,2.243]
+Q260 = [2.2463,-1.0208,1.599,-2.1582,-1.5846,2.2442]
+Q261 = [2.2475,-1.0193,1.5965,-2.1572,-1.5846,2.2454]
+Q262 = [2.2487,-1.0178,1.5939,-2.1561,-1.5847,2.2466]
+Q263 = [2.2499,-1.0163,1.5914,-2.1551,-1.5847,2.2478]
+Q264 = [2.251,-1.0147,1.5888,-2.154,-1.5847,2.249]
+Q265 = [2.2522,-1.0132,1.5862,-2.153,-1.5847,2.2502]
+Q266 = [2.2534,-1.0117,1.5836,-2.1519,-1.5847,2.2514]
+Q267 = [2.2546,-1.0101,1.5811,-2.1509,-1.5848,2.2526]
+Q268 = [2.2558,-1.0086,1.5785,-2.1498,-1.5848,2.2537]
+Q269 = [2.2569,-1.007,1.5759,-2.1488,-1.5848,2.2549]
+Q270 = [2.2581,-1.0055,1.5733,-2.1477,-1.5848,2.2561]
+Q271 = [2.2593,-1.004,1.5707,-2.1466,-1.5848,2.2573]
+Q272 = [2.2604,-1.0024,1.5681,-2.1456,-1.5849,2.2584]
+Q273 = [2.2616,-1.0009,1.5654,-2.1445,-1.5849,2.2596]
+Q274 = [2.2627,-0.99931,1.5628,-2.1434,-1.5849,2.2607]
+Q275 = [2.2639,-0.99776,1.5602,-2.1423,-1.5849,2.2619]
+Q276 = [2.265,-0.9962,1.5575,-2.1413,-1.5849,2.2631]
+Q277 = [2.2662,-0.99464,1.5549,-2.1402,-1.585,2.2642]
+Q278 = [2.2673,-0.99308,1.5522,-2.1391,-1.585,2.2654]
+Q279 = [2.2685,-0.99152,1.5496,-2.138,-1.585,2.2665]
+Q280 = [2.2696,-0.98995,1.5469,-2.1369,-1.585,2.2677]
+Q281 = [2.2708,-0.98839,1.5443,-2.1358,-1.585,2.2688]
+Q282 = [2.2719,-0.98682,1.5416,-2.1347,-1.5851,2.27]
+Q283 = [2.273,-0.98524,1.5389,-2.1336,-1.5851,2.2711]
+Q284 = [2.2742,-0.98367,1.5362,-2.1324,-1.5851,2.2722]
+Q285 = [2.2753,-0.98209,1.5335,-2.1313,-1.5851,2.2734]
+Q286 = [2.2742,-0.98367,1.5362,-2.1324,-1.5851,2.2722]
+Q287 = [2.3725,-1.1032,1.696,-2.1759,-1.5963,2.4604]
+
+
+client = None
+def move():
+    global joints_pos
+    g = FollowJointTrajectoryGoal()
+    g.trajectory = JointTrajectory()
+    g.trajectory.joint_names = JOINT_NAMES
+    try:
+        joint_states = rospy.wait_for_message("joint_states", JointState)
+        joints_pos = joint_states.position
+        g.trajectory.points = [
+            JointTrajectoryPoint(positions=joints_pos, velocities=[0]*6, time_from_start=rospy.Duration(0.0)),
+            JointTrajectoryPoint(positions=Q1, velocities=[0]*6, time_from_start=rospy.Duration(15)),
+            JointTrajectoryPoint(positions=Q2, velocities=[0]*6, time_from_start=rospy.Duration(15.2)),
+            JointTrajectoryPoint(positions=Q3, velocities=[0]*6, time_from_start=rospy.Duration(15.4)),
+            JointTrajectoryPoint(positions=Q4, velocities=[0]*6, time_from_start=rospy.Duration(15.6)),
+            JointTrajectoryPoint(positions=Q5, velocities=[0]*6, time_from_start=rospy.Duration(15.8)),
+            JointTrajectoryPoint(positions=Q6, velocities=[0]*6, time_from_start=rospy.Duration(16)),
+            JointTrajectoryPoint(positions=Q7, velocities=[0]*6, time_from_start=rospy.Duration(16.2)),
+            JointTrajectoryPoint(positions=Q8, velocities=[0]*6, time_from_start=rospy.Duration(16.4)),
+            JointTrajectoryPoint(positions=Q9, velocities=[0]*6, time_from_start=rospy.Duration(16.6)),
+            JointTrajectoryPoint(positions=Q10, velocities=[0]*6, time_from_start=rospy.Duration(16.8)),
+            JointTrajectoryPoint(positions=Q11, velocities=[0]*6, time_from_start=rospy.Duration(17)),
+            JointTrajectoryPoint(positions=Q12, velocities=[0]*6, time_from_start=rospy.Duration(17.2)),
+            JointTrajectoryPoint(positions=Q13, velocities=[0]*6, time_from_start=rospy.Duration(17.4)),
+            JointTrajectoryPoint(positions=Q14, velocities=[0]*6, time_from_start=rospy.Duration(17.6)),
+            JointTrajectoryPoint(positions=Q15, velocities=[0]*6, time_from_start=rospy.Duration(17.8)),
+            JointTrajectoryPoint(positions=Q16, velocities=[0]*6, time_from_start=rospy.Duration(18)),
+            JointTrajectoryPoint(positions=Q17, velocities=[0]*6, time_from_start=rospy.Duration(18.2)),
+            JointTrajectoryPoint(positions=Q18, velocities=[0]*6, time_from_start=rospy.Duration(18.4)),
+            JointTrajectoryPoint(positions=Q19, velocities=[0]*6, time_from_start=rospy.Duration(18.6)),
+            JointTrajectoryPoint(positions=Q20, velocities=[0]*6, time_from_start=rospy.Duration(18.8)),
+            JointTrajectoryPoint(positions=Q21, velocities=[0]*6, time_from_start=rospy.Duration(19)),
+            JointTrajectoryPoint(positions=Q22, velocities=[0]*6, time_from_start=rospy.Duration(19.2)),
+            JointTrajectoryPoint(positions=Q23, velocities=[0]*6, time_from_start=rospy.Duration(19.4)),
+            JointTrajectoryPoint(positions=Q24, velocities=[0]*6, time_from_start=rospy.Duration(19.6)),
+            JointTrajectoryPoint(positions=Q25, velocities=[0]*6, time_from_start=rospy.Duration(19.8)),
+            JointTrajectoryPoint(positions=Q26, velocities=[0]*6, time_from_start=rospy.Duration(20)),
+            JointTrajectoryPoint(positions=Q27, velocities=[0]*6, time_from_start=rospy.Duration(20.2)),
+            JointTrajectoryPoint(positions=Q28, velocities=[0]*6, time_from_start=rospy.Duration(20.4)),
+            JointTrajectoryPoint(positions=Q29, velocities=[0]*6, time_from_start=rospy.Duration(20.6)),
+            JointTrajectoryPoint(positions=Q30, velocities=[0]*6, time_from_start=rospy.Duration(20.8)),
+            JointTrajectoryPoint(positions=Q31, velocities=[0]*6, time_from_start=rospy.Duration(21)),
+            JointTrajectoryPoint(positions=Q32, velocities=[0]*6, time_from_start=rospy.Duration(21.2)),
+            JointTrajectoryPoint(positions=Q33, velocities=[0]*6, time_from_start=rospy.Duration(21.4)),
+            JointTrajectoryPoint(positions=Q34, velocities=[0]*6, time_from_start=rospy.Duration(21.6)),
+            JointTrajectoryPoint(positions=Q35, velocities=[0]*6, time_from_start=rospy.Duration(21.8)),
+            JointTrajectoryPoint(positions=Q36, velocities=[0]*6, time_from_start=rospy.Duration(22)),
+            JointTrajectoryPoint(positions=Q37, velocities=[0]*6, time_from_start=rospy.Duration(22.2)),
+            JointTrajectoryPoint(positions=Q38, velocities=[0]*6, time_from_start=rospy.Duration(22.4)),
+            JointTrajectoryPoint(positions=Q39, velocities=[0]*6, time_from_start=rospy.Duration(22.6)),
+            JointTrajectoryPoint(positions=Q40, velocities=[0]*6, time_from_start=rospy.Duration(22.8)),
+            JointTrajectoryPoint(positions=Q41, velocities=[0]*6, time_from_start=rospy.Duration(23)),
+            JointTrajectoryPoint(positions=Q42, velocities=[0]*6, time_from_start=rospy.Duration(23.2)),
+            JointTrajectoryPoint(positions=Q43, velocities=[0]*6, time_from_start=rospy.Duration(23.4)),
+            JointTrajectoryPoint(positions=Q44, velocities=[0]*6, time_from_start=rospy.Duration(23.6)),
+            JointTrajectoryPoint(positions=Q45, velocities=[0]*6, time_from_start=rospy.Duration(23.8)),
+            JointTrajectoryPoint(positions=Q46, velocities=[0]*6, time_from_start=rospy.Duration(24)),
+            JointTrajectoryPoint(positions=Q47, velocities=[0]*6, time_from_start=rospy.Duration(24.2)),
+            JointTrajectoryPoint(positions=Q48, velocities=[0]*6, time_from_start=rospy.Duration(24.4)),
+            JointTrajectoryPoint(positions=Q49, velocities=[0]*6, time_from_start=rospy.Duration(24.6)),
+            JointTrajectoryPoint(positions=Q50, velocities=[0]*6, time_from_start=rospy.Duration(24.8)),
+            JointTrajectoryPoint(positions=Q51, velocities=[0]*6, time_from_start=rospy.Duration(25)),
+            JointTrajectoryPoint(positions=Q52, velocities=[0]*6, time_from_start=rospy.Duration(25.2)),
+            JointTrajectoryPoint(positions=Q53, velocities=[0]*6, time_from_start=rospy.Duration(25.4)),
+            JointTrajectoryPoint(positions=Q54, velocities=[0]*6, time_from_start=rospy.Duration(25.6)),
+            JointTrajectoryPoint(positions=Q55, velocities=[0]*6, time_from_start=rospy.Duration(25.8)),
+            JointTrajectoryPoint(positions=Q56, velocities=[0]*6, time_from_start=rospy.Duration(26)),
+            JointTrajectoryPoint(positions=Q57, velocities=[0]*6, time_from_start=rospy.Duration(26.2)),
+            JointTrajectoryPoint(positions=Q58, velocities=[0]*6, time_from_start=rospy.Duration(26.4)),
+            JointTrajectoryPoint(positions=Q59, velocities=[0]*6, time_from_start=rospy.Duration(26.6)),
+            JointTrajectoryPoint(positions=Q60, velocities=[0]*6, time_from_start=rospy.Duration(26.8)),
+            JointTrajectoryPoint(positions=Q61, velocities=[0]*6, time_from_start=rospy.Duration(27)),
+            JointTrajectoryPoint(positions=Q62, velocities=[0]*6, time_from_start=rospy.Duration(27.2)),
+            JointTrajectoryPoint(positions=Q63, velocities=[0]*6, time_from_start=rospy.Duration(27.4)),
+            JointTrajectoryPoint(positions=Q64, velocities=[0]*6, time_from_start=rospy.Duration(27.6)),
+            JointTrajectoryPoint(positions=Q65, velocities=[0]*6, time_from_start=rospy.Duration(27.8)),
+            JointTrajectoryPoint(positions=Q66, velocities=[0]*6, time_from_start=rospy.Duration(28)),
+            JointTrajectoryPoint(positions=Q67, velocities=[0]*6, time_from_start=rospy.Duration(28.2)),
+            JointTrajectoryPoint(positions=Q68, velocities=[0]*6, time_from_start=rospy.Duration(28.4)),
+            JointTrajectoryPoint(positions=Q69, velocities=[0]*6, time_from_start=rospy.Duration(28.6)),
+            JointTrajectoryPoint(positions=Q70, velocities=[0]*6, time_from_start=rospy.Duration(28.8)),
+            JointTrajectoryPoint(positions=Q71, velocities=[0]*6, time_from_start=rospy.Duration(29)),
+            JointTrajectoryPoint(positions=Q72, velocities=[0]*6, time_from_start=rospy.Duration(29.2)),
+            JointTrajectoryPoint(positions=Q73, velocities=[0]*6, time_from_start=rospy.Duration(29.4)),
+            JointTrajectoryPoint(positions=Q74, velocities=[0]*6, time_from_start=rospy.Duration(29.6)),
+            JointTrajectoryPoint(positions=Q75, velocities=[0]*6, time_from_start=rospy.Duration(29.8)),
+            JointTrajectoryPoint(positions=Q76, velocities=[0]*6, time_from_start=rospy.Duration(30)),
+            JointTrajectoryPoint(positions=Q77, velocities=[0]*6, time_from_start=rospy.Duration(30.2)),
+            JointTrajectoryPoint(positions=Q78, velocities=[0]*6, time_from_start=rospy.Duration(30.4)),
+            JointTrajectoryPoint(positions=Q79, velocities=[0]*6, time_from_start=rospy.Duration(30.6)),
+            JointTrajectoryPoint(positions=Q80, velocities=[0]*6, time_from_start=rospy.Duration(30.8)),
+            JointTrajectoryPoint(positions=Q81, velocities=[0]*6, time_from_start=rospy.Duration(31)),
+            JointTrajectoryPoint(positions=Q82, velocities=[0]*6, time_from_start=rospy.Duration(31.2)),
+            JointTrajectoryPoint(positions=Q83, velocities=[0]*6, time_from_start=rospy.Duration(31.4)),
+            JointTrajectoryPoint(positions=Q84, velocities=[0]*6, time_from_start=rospy.Duration(31.6)),
+            JointTrajectoryPoint(positions=Q85, velocities=[0]*6, time_from_start=rospy.Duration(31.8)),
+            JointTrajectoryPoint(positions=Q86, velocities=[0]*6, time_from_start=rospy.Duration(32)),
+            JointTrajectoryPoint(positions=Q87, velocities=[0]*6, time_from_start=rospy.Duration(32.2)),
+            JointTrajectoryPoint(positions=Q88, velocities=[0]*6, time_from_start=rospy.Duration(32.4)),
+            JointTrajectoryPoint(positions=Q89, velocities=[0]*6, time_from_start=rospy.Duration(32.6)),
+            JointTrajectoryPoint(positions=Q90, velocities=[0]*6, time_from_start=rospy.Duration(32.8)),
+            JointTrajectoryPoint(positions=Q91, velocities=[0]*6, time_from_start=rospy.Duration(33)),
+            JointTrajectoryPoint(positions=Q92, velocities=[0]*6, time_from_start=rospy.Duration(33.2)),
+            JointTrajectoryPoint(positions=Q93, velocities=[0]*6, time_from_start=rospy.Duration(33.4)),
+            JointTrajectoryPoint(positions=Q94, velocities=[0]*6, time_from_start=rospy.Duration(33.6)),
+            JointTrajectoryPoint(positions=Q95, velocities=[0]*6, time_from_start=rospy.Duration(33.8)),
+            JointTrajectoryPoint(positions=Q96, velocities=[0]*6, time_from_start=rospy.Duration(34)),
+            JointTrajectoryPoint(positions=Q97, velocities=[0]*6, time_from_start=rospy.Duration(34.2)),
+            JointTrajectoryPoint(positions=Q98, velocities=[0]*6, time_from_start=rospy.Duration(34.4)),
+            JointTrajectoryPoint(positions=Q99, velocities=[0]*6, time_from_start=rospy.Duration(34.6)),
+            JointTrajectoryPoint(positions=Q100, velocities=[0]*6, time_from_start=rospy.Duration(34.8)),
+            JointTrajectoryPoint(positions=Q101, velocities=[0]*6, time_from_start=rospy.Duration(35)),
+            JointTrajectoryPoint(positions=Q102, velocities=[0]*6, time_from_start=rospy.Duration(35.2)),
+            JointTrajectoryPoint(positions=Q103, velocities=[0]*6, time_from_start=rospy.Duration(35.4)),
+            JointTrajectoryPoint(positions=Q104, velocities=[0]*6, time_from_start=rospy.Duration(35.6)),
+            JointTrajectoryPoint(positions=Q105, velocities=[0]*6, time_from_start=rospy.Duration(35.8)),
+            JointTrajectoryPoint(positions=Q106, velocities=[0]*6, time_from_start=rospy.Duration(36)),
+            JointTrajectoryPoint(positions=Q107, velocities=[0]*6, time_from_start=rospy.Duration(36.2)),
+            JointTrajectoryPoint(positions=Q108, velocities=[0]*6, time_from_start=rospy.Duration(36.4)),
+            JointTrajectoryPoint(positions=Q109, velocities=[0]*6, time_from_start=rospy.Duration(36.6)),
+            JointTrajectoryPoint(positions=Q110, velocities=[0]*6, time_from_start=rospy.Duration(36.8)),
+            JointTrajectoryPoint(positions=Q111, velocities=[0]*6, time_from_start=rospy.Duration(37)),
+            JointTrajectoryPoint(positions=Q112, velocities=[0]*6, time_from_start=rospy.Duration(37.2)),
+            JointTrajectoryPoint(positions=Q113, velocities=[0]*6, time_from_start=rospy.Duration(37.4)),
+            JointTrajectoryPoint(positions=Q114, velocities=[0]*6, time_from_start=rospy.Duration(37.6)),
+            JointTrajectoryPoint(positions=Q115, velocities=[0]*6, time_from_start=rospy.Duration(37.8)),
+            JointTrajectoryPoint(positions=Q116, velocities=[0]*6, time_from_start=rospy.Duration(38)),
+            JointTrajectoryPoint(positions=Q117, velocities=[0]*6, time_from_start=rospy.Duration(38.2)),
+            JointTrajectoryPoint(positions=Q118, velocities=[0]*6, time_from_start=rospy.Duration(38.4)),
+            JointTrajectoryPoint(positions=Q119, velocities=[0]*6, time_from_start=rospy.Duration(38.6)),
+            JointTrajectoryPoint(positions=Q120, velocities=[0]*6, time_from_start=rospy.Duration(38.8)),
+            JointTrajectoryPoint(positions=Q121, velocities=[0]*6, time_from_start=rospy.Duration(39)),
+            JointTrajectoryPoint(positions=Q122, velocities=[0]*6, time_from_start=rospy.Duration(39.2)),
+            JointTrajectoryPoint(positions=Q123, velocities=[0]*6, time_from_start=rospy.Duration(39.4)),
+            JointTrajectoryPoint(positions=Q124, velocities=[0]*6, time_from_start=rospy.Duration(39.6)),
+            JointTrajectoryPoint(positions=Q125, velocities=[0]*6, time_from_start=rospy.Duration(39.8)),
+            JointTrajectoryPoint(positions=Q126, velocities=[0]*6, time_from_start=rospy.Duration(40)),
+            JointTrajectoryPoint(positions=Q127, velocities=[0]*6, time_from_start=rospy.Duration(40.2)),
+            JointTrajectoryPoint(positions=Q128, velocities=[0]*6, time_from_start=rospy.Duration(40.4)),
+            JointTrajectoryPoint(positions=Q129, velocities=[0]*6, time_from_start=rospy.Duration(40.6)),
+            JointTrajectoryPoint(positions=Q130, velocities=[0]*6, time_from_start=rospy.Duration(40.8)),
+            JointTrajectoryPoint(positions=Q131, velocities=[0]*6, time_from_start=rospy.Duration(41)),
+            JointTrajectoryPoint(positions=Q132, velocities=[0]*6, time_from_start=rospy.Duration(41.2)),
+            JointTrajectoryPoint(positions=Q133, velocities=[0]*6, time_from_start=rospy.Duration(41.4)),
+            JointTrajectoryPoint(positions=Q134, velocities=[0]*6, time_from_start=rospy.Duration(41.6)),
+            JointTrajectoryPoint(positions=Q135, velocities=[0]*6, time_from_start=rospy.Duration(41.8)),
+            JointTrajectoryPoint(positions=Q136, velocities=[0]*6, time_from_start=rospy.Duration(42)),
+            JointTrajectoryPoint(positions=Q137, velocities=[0]*6, time_from_start=rospy.Duration(42.2)),
+            JointTrajectoryPoint(positions=Q138, velocities=[0]*6, time_from_start=rospy.Duration(42.4)),
+            JointTrajectoryPoint(positions=Q139, velocities=[0]*6, time_from_start=rospy.Duration(42.6)),
+            JointTrajectoryPoint(positions=Q140, velocities=[0]*6, time_from_start=rospy.Duration(42.8)),
+            JointTrajectoryPoint(positions=Q141, velocities=[0]*6, time_from_start=rospy.Duration(43)),
+            JointTrajectoryPoint(positions=Q142, velocities=[0]*6, time_from_start=rospy.Duration(43.2)),
+            JointTrajectoryPoint(positions=Q143, velocities=[0]*6, time_from_start=rospy.Duration(43.4)),
+            JointTrajectoryPoint(positions=Q144, velocities=[0]*6, time_from_start=rospy.Duration(43.6)),
+            JointTrajectoryPoint(positions=Q145, velocities=[0]*6, time_from_start=rospy.Duration(43.8)),
+            JointTrajectoryPoint(positions=Q146, velocities=[0]*6, time_from_start=rospy.Duration(44)),
+            JointTrajectoryPoint(positions=Q147, velocities=[0]*6, time_from_start=rospy.Duration(44.2)),
+            JointTrajectoryPoint(positions=Q148, velocities=[0]*6, time_from_start=rospy.Duration(44.4)),
+            JointTrajectoryPoint(positions=Q149, velocities=[0]*6, time_from_start=rospy.Duration(44.6)),
+            JointTrajectoryPoint(positions=Q150, velocities=[0]*6, time_from_start=rospy.Duration(44.8)),
+            JointTrajectoryPoint(positions=Q151, velocities=[0]*6, time_from_start=rospy.Duration(45)),
+            JointTrajectoryPoint(positions=Q152, velocities=[0]*6, time_from_start=rospy.Duration(45.2)),
+            JointTrajectoryPoint(positions=Q153, velocities=[0]*6, time_from_start=rospy.Duration(45.4)),
+            JointTrajectoryPoint(positions=Q154, velocities=[0]*6, time_from_start=rospy.Duration(45.6)),
+            JointTrajectoryPoint(positions=Q155, velocities=[0]*6, time_from_start=rospy.Duration(45.8)),
+            JointTrajectoryPoint(positions=Q156, velocities=[0]*6, time_from_start=rospy.Duration(46)),
+            JointTrajectoryPoint(positions=Q157, velocities=[0]*6, time_from_start=rospy.Duration(46.2)),
+            JointTrajectoryPoint(positions=Q158, velocities=[0]*6, time_from_start=rospy.Duration(46.4)),
+            JointTrajectoryPoint(positions=Q159, velocities=[0]*6, time_from_start=rospy.Duration(46.6)),
+            JointTrajectoryPoint(positions=Q160, velocities=[0]*6, time_from_start=rospy.Duration(46.8)),
+            JointTrajectoryPoint(positions=Q161, velocities=[0]*6, time_from_start=rospy.Duration(47)),
+            JointTrajectoryPoint(positions=Q162, velocities=[0]*6, time_from_start=rospy.Duration(47.2)),
+            JointTrajectoryPoint(positions=Q163, velocities=[0]*6, time_from_start=rospy.Duration(47.4)),
+            JointTrajectoryPoint(positions=Q164, velocities=[0]*6, time_from_start=rospy.Duration(47.6)),
+            JointTrajectoryPoint(positions=Q165, velocities=[0]*6, time_from_start=rospy.Duration(47.8)),
+            JointTrajectoryPoint(positions=Q166, velocities=[0]*6, time_from_start=rospy.Duration(48)),
+            JointTrajectoryPoint(positions=Q167, velocities=[0]*6, time_from_start=rospy.Duration(48.2)),
+            JointTrajectoryPoint(positions=Q168, velocities=[0]*6, time_from_start=rospy.Duration(48.4)),
+            JointTrajectoryPoint(positions=Q169, velocities=[0]*6, time_from_start=rospy.Duration(48.6)),
+            JointTrajectoryPoint(positions=Q170, velocities=[0]*6, time_from_start=rospy.Duration(48.8)),
+            JointTrajectoryPoint(positions=Q171, velocities=[0]*6, time_from_start=rospy.Duration(49)),
+            JointTrajectoryPoint(positions=Q172, velocities=[0]*6, time_from_start=rospy.Duration(49.2)),
+            JointTrajectoryPoint(positions=Q173, velocities=[0]*6, time_from_start=rospy.Duration(49.4)),
+            JointTrajectoryPoint(positions=Q174, velocities=[0]*6, time_from_start=rospy.Duration(49.6)),
+            JointTrajectoryPoint(positions=Q175, velocities=[0]*6, time_from_start=rospy.Duration(49.8)),
+            JointTrajectoryPoint(positions=Q176, velocities=[0]*6, time_from_start=rospy.Duration(50)),
+            JointTrajectoryPoint(positions=Q177, velocities=[0]*6, time_from_start=rospy.Duration(50.2)),
+            JointTrajectoryPoint(positions=Q178, velocities=[0]*6, time_from_start=rospy.Duration(50.4)),
+            JointTrajectoryPoint(positions=Q179, velocities=[0]*6, time_from_start=rospy.Duration(50.6)),
+            JointTrajectoryPoint(positions=Q180, velocities=[0]*6, time_from_start=rospy.Duration(50.8)),
+            JointTrajectoryPoint(positions=Q181, velocities=[0]*6, time_from_start=rospy.Duration(51)),
+            JointTrajectoryPoint(positions=Q182, velocities=[0]*6, time_from_start=rospy.Duration(51.2)),
+            JointTrajectoryPoint(positions=Q183, velocities=[0]*6, time_from_start=rospy.Duration(51.4)),
+            JointTrajectoryPoint(positions=Q184, velocities=[0]*6, time_from_start=rospy.Duration(51.6)),
+            JointTrajectoryPoint(positions=Q185, velocities=[0]*6, time_from_start=rospy.Duration(51.8)),
+            JointTrajectoryPoint(positions=Q186, velocities=[0]*6, time_from_start=rospy.Duration(52)),
+            JointTrajectoryPoint(positions=Q187, velocities=[0]*6, time_from_start=rospy.Duration(52.2)),
+            JointTrajectoryPoint(positions=Q188, velocities=[0]*6, time_from_start=rospy.Duration(52.4)),
+            JointTrajectoryPoint(positions=Q189, velocities=[0]*6, time_from_start=rospy.Duration(52.6)),
+            JointTrajectoryPoint(positions=Q190, velocities=[0]*6, time_from_start=rospy.Duration(52.8)),
+            JointTrajectoryPoint(positions=Q191, velocities=[0]*6, time_from_start=rospy.Duration(53)),
+            JointTrajectoryPoint(positions=Q192, velocities=[0]*6, time_from_start=rospy.Duration(53.2)),
+            JointTrajectoryPoint(positions=Q193, velocities=[0]*6, time_from_start=rospy.Duration(53.4)),
+            JointTrajectoryPoint(positions=Q194, velocities=[0]*6, time_from_start=rospy.Duration(53.6)),
+            JointTrajectoryPoint(positions=Q195, velocities=[0]*6, time_from_start=rospy.Duration(53.8)),
+            JointTrajectoryPoint(positions=Q196, velocities=[0]*6, time_from_start=rospy.Duration(54)),
+            JointTrajectoryPoint(positions=Q197, velocities=[0]*6, time_from_start=rospy.Duration(54.2)),
+            JointTrajectoryPoint(positions=Q198, velocities=[0]*6, time_from_start=rospy.Duration(54.4)),
+            JointTrajectoryPoint(positions=Q199, velocities=[0]*6, time_from_start=rospy.Duration(54.6)),
+            JointTrajectoryPoint(positions=Q200, velocities=[0]*6, time_from_start=rospy.Duration(54.8)),
+            JointTrajectoryPoint(positions=Q201, velocities=[0]*6, time_from_start=rospy.Duration(55)),
+            JointTrajectoryPoint(positions=Q202, velocities=[0]*6, time_from_start=rospy.Duration(55.2)),
+            JointTrajectoryPoint(positions=Q203, velocities=[0]*6, time_from_start=rospy.Duration(55.4)),
+            JointTrajectoryPoint(positions=Q204, velocities=[0]*6, time_from_start=rospy.Duration(55.6)),
+            JointTrajectoryPoint(positions=Q205, velocities=[0]*6, time_from_start=rospy.Duration(55.8)),
+            JointTrajectoryPoint(positions=Q206, velocities=[0]*6, time_from_start=rospy.Duration(56)),
+            JointTrajectoryPoint(positions=Q207, velocities=[0]*6, time_from_start=rospy.Duration(56.2)),
+            JointTrajectoryPoint(positions=Q208, velocities=[0]*6, time_from_start=rospy.Duration(56.4)),
+            JointTrajectoryPoint(positions=Q209, velocities=[0]*6, time_from_start=rospy.Duration(56.6)),
+            JointTrajectoryPoint(positions=Q210, velocities=[0]*6, time_from_start=rospy.Duration(56.8)),
+            JointTrajectoryPoint(positions=Q211, velocities=[0]*6, time_from_start=rospy.Duration(57)),
+            JointTrajectoryPoint(positions=Q212, velocities=[0]*6, time_from_start=rospy.Duration(57.2)),
+            JointTrajectoryPoint(positions=Q213, velocities=[0]*6, time_from_start=rospy.Duration(57.4)),
+            JointTrajectoryPoint(positions=Q214, velocities=[0]*6, time_from_start=rospy.Duration(57.6)),
+            JointTrajectoryPoint(positions=Q215, velocities=[0]*6, time_from_start=rospy.Duration(57.8)),
+            JointTrajectoryPoint(positions=Q216, velocities=[0]*6, time_from_start=rospy.Duration(58)),
+            JointTrajectoryPoint(positions=Q217, velocities=[0]*6, time_from_start=rospy.Duration(58.2)),
+            JointTrajectoryPoint(positions=Q218, velocities=[0]*6, time_from_start=rospy.Duration(58.4)),
+            JointTrajectoryPoint(positions=Q219, velocities=[0]*6, time_from_start=rospy.Duration(58.6)),
+            JointTrajectoryPoint(positions=Q220, velocities=[0]*6, time_from_start=rospy.Duration(58.8)),
+            JointTrajectoryPoint(positions=Q221, velocities=[0]*6, time_from_start=rospy.Duration(59)),
+            JointTrajectoryPoint(positions=Q222, velocities=[0]*6, time_from_start=rospy.Duration(59.2)),
+            JointTrajectoryPoint(positions=Q223, velocities=[0]*6, time_from_start=rospy.Duration(59.4)),
+            JointTrajectoryPoint(positions=Q224, velocities=[0]*6, time_from_start=rospy.Duration(59.6)),
+            JointTrajectoryPoint(positions=Q225, velocities=[0]*6, time_from_start=rospy.Duration(59.8)),
+            JointTrajectoryPoint(positions=Q226, velocities=[0]*6, time_from_start=rospy.Duration(60)),
+            JointTrajectoryPoint(positions=Q227, velocities=[0]*6, time_from_start=rospy.Duration(60.2)),
+            JointTrajectoryPoint(positions=Q228, velocities=[0]*6, time_from_start=rospy.Duration(60.4)),
+            JointTrajectoryPoint(positions=Q229, velocities=[0]*6, time_from_start=rospy.Duration(60.6)),
+            JointTrajectoryPoint(positions=Q230, velocities=[0]*6, time_from_start=rospy.Duration(60.8)),
+            JointTrajectoryPoint(positions=Q231, velocities=[0]*6, time_from_start=rospy.Duration(61)),
+            JointTrajectoryPoint(positions=Q232, velocities=[0]*6, time_from_start=rospy.Duration(61.2)),
+            JointTrajectoryPoint(positions=Q233, velocities=[0]*6, time_from_start=rospy.Duration(61.4)),
+            JointTrajectoryPoint(positions=Q234, velocities=[0]*6, time_from_start=rospy.Duration(61.6)),
+            JointTrajectoryPoint(positions=Q235, velocities=[0]*6, time_from_start=rospy.Duration(61.8)),
+            JointTrajectoryPoint(positions=Q236, velocities=[0]*6, time_from_start=rospy.Duration(62)),
+            JointTrajectoryPoint(positions=Q237, velocities=[0]*6, time_from_start=rospy.Duration(62.2)),
+            JointTrajectoryPoint(positions=Q238, velocities=[0]*6, time_from_start=rospy.Duration(62.4)),
+            JointTrajectoryPoint(positions=Q239, velocities=[0]*6, time_from_start=rospy.Duration(62.6)),
+            JointTrajectoryPoint(positions=Q240, velocities=[0]*6, time_from_start=rospy.Duration(62.8)),
+            JointTrajectoryPoint(positions=Q241, velocities=[0]*6, time_from_start=rospy.Duration(63)),
+            JointTrajectoryPoint(positions=Q242, velocities=[0]*6, time_from_start=rospy.Duration(63.2)),
+            JointTrajectoryPoint(positions=Q243, velocities=[0]*6, time_from_start=rospy.Duration(63.4)),
+            JointTrajectoryPoint(positions=Q244, velocities=[0]*6, time_from_start=rospy.Duration(63.6)),
+            JointTrajectoryPoint(positions=Q245, velocities=[0]*6, time_from_start=rospy.Duration(63.8)),
+            JointTrajectoryPoint(positions=Q246, velocities=[0]*6, time_from_start=rospy.Duration(64)),
+            JointTrajectoryPoint(positions=Q247, velocities=[0]*6, time_from_start=rospy.Duration(64.2)),
+            JointTrajectoryPoint(positions=Q248, velocities=[0]*6, time_from_start=rospy.Duration(64.4)),
+            JointTrajectoryPoint(positions=Q249, velocities=[0]*6, time_from_start=rospy.Duration(64.6)),
+            JointTrajectoryPoint(positions=Q250, velocities=[0]*6, time_from_start=rospy.Duration(64.8)),
+            JointTrajectoryPoint(positions=Q251, velocities=[0]*6, time_from_start=rospy.Duration(65)),
+            JointTrajectoryPoint(positions=Q252, velocities=[0]*6, time_from_start=rospy.Duration(65.2)),
+            JointTrajectoryPoint(positions=Q253, velocities=[0]*6, time_from_start=rospy.Duration(65.4)),
+            JointTrajectoryPoint(positions=Q254, velocities=[0]*6, time_from_start=rospy.Duration(65.6)),
+            JointTrajectoryPoint(positions=Q255, velocities=[0]*6, time_from_start=rospy.Duration(65.8)),
+            JointTrajectoryPoint(positions=Q256, velocities=[0]*6, time_from_start=rospy.Duration(66)),
+            JointTrajectoryPoint(positions=Q257, velocities=[0]*6, time_from_start=rospy.Duration(66.2)),
+            JointTrajectoryPoint(positions=Q258, velocities=[0]*6, time_from_start=rospy.Duration(66.4)),
+            JointTrajectoryPoint(positions=Q259, velocities=[0]*6, time_from_start=rospy.Duration(66.6)),
+            JointTrajectoryPoint(positions=Q260, velocities=[0]*6, time_from_start=rospy.Duration(66.8)),
+            JointTrajectoryPoint(positions=Q261, velocities=[0]*6, time_from_start=rospy.Duration(67)),
+            JointTrajectoryPoint(positions=Q262, velocities=[0]*6, time_from_start=rospy.Duration(67.2)),
+            JointTrajectoryPoint(positions=Q263, velocities=[0]*6, time_from_start=rospy.Duration(67.4)),
+            JointTrajectoryPoint(positions=Q264, velocities=[0]*6, time_from_start=rospy.Duration(67.6)),
+            JointTrajectoryPoint(positions=Q265, velocities=[0]*6, time_from_start=rospy.Duration(67.8)),
+            JointTrajectoryPoint(positions=Q266, velocities=[0]*6, time_from_start=rospy.Duration(68)),
+            JointTrajectoryPoint(positions=Q267, velocities=[0]*6, time_from_start=rospy.Duration(68.2)),
+            JointTrajectoryPoint(positions=Q268, velocities=[0]*6, time_from_start=rospy.Duration(68.4)),
+            JointTrajectoryPoint(positions=Q269, velocities=[0]*6, time_from_start=rospy.Duration(68.6)),
+            JointTrajectoryPoint(positions=Q270, velocities=[0]*6, time_from_start=rospy.Duration(68.8)),
+            JointTrajectoryPoint(positions=Q271, velocities=[0]*6, time_from_start=rospy.Duration(69)),
+            JointTrajectoryPoint(positions=Q272, velocities=[0]*6, time_from_start=rospy.Duration(69.2)),
+            JointTrajectoryPoint(positions=Q273, velocities=[0]*6, time_from_start=rospy.Duration(69.4)),
+            JointTrajectoryPoint(positions=Q274, velocities=[0]*6, time_from_start=rospy.Duration(69.6)),
+            JointTrajectoryPoint(positions=Q275, velocities=[0]*6, time_from_start=rospy.Duration(69.8)),
+            JointTrajectoryPoint(positions=Q276, velocities=[0]*6, time_from_start=rospy.Duration(70)),
+            JointTrajectoryPoint(positions=Q277, velocities=[0]*6, time_from_start=rospy.Duration(70.2)),
+            JointTrajectoryPoint(positions=Q278, velocities=[0]*6, time_from_start=rospy.Duration(70.4)),
+            JointTrajectoryPoint(positions=Q279, velocities=[0]*6, time_from_start=rospy.Duration(70.6)),
+            JointTrajectoryPoint(positions=Q280, velocities=[0]*6, time_from_start=rospy.Duration(70.8)),
+            JointTrajectoryPoint(positions=Q281, velocities=[0]*6, time_from_start=rospy.Duration(71)),
+            JointTrajectoryPoint(positions=Q282, velocities=[0]*6, time_from_start=rospy.Duration(71.2)),
+            JointTrajectoryPoint(positions=Q283, velocities=[0]*6, time_from_start=rospy.Duration(71.4)),
+            JointTrajectoryPoint(positions=Q284, velocities=[0]*6, time_from_start=rospy.Duration(71.6)),
+            JointTrajectoryPoint(positions=Q285, velocities=[0]*6, time_from_start=rospy.Duration(71.8)),
+            JointTrajectoryPoint(positions=Q286, velocities=[0]*6, time_from_start=rospy.Duration(72.2)),
+            JointTrajectoryPoint(positions=Q287, velocities=[0]*6, time_from_start=rospy.Duration(75))]
+        client.send_goal(g)
+        client.wait_for_result()
+    except KeyboardInterrupt:
+        client.cancel_goal()
+        raise
+    except:
+        raise
+
+def main():
+    global client
+    try:
+        rospy.init_node("simple_move", anonymous=True, disable_signals=True)
+        client = actionlib.SimpleActionClient('follow_joint_trajectory', FollowJointTrajectoryAction)
+        print "Waiting for server..."
+        client.wait_for_server()
+        print "Connected to server"
+        move()
+        print "Trajectory finished"
+        time.sleep(0.5)
+    except KeyboardInterrupt:
+        rospy.signal_shutdown("KeyboardInterrupt")
+        raise
+
+if __name__ == '__main__': main()

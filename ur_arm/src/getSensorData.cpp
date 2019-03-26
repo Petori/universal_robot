@@ -1,5 +1,6 @@
 // -----------------------------------------------------------------------------------------------
-// Created by petori on 2018/11/14
+// version 1.0 created by petori on 2018/11/14
+// version 2.0 on 2019/3/26
 // This file is used to get six-dimensional force data from ATI Axia80.
 // The bias is set.
 // The gravity compensation is done.
@@ -17,6 +18,7 @@
 #include <geometry_msgs/WrenchStamped.h>
 #include <sensor_msgs/JointState.h>
 #include <std_msgs/Int8.h>
+#include <std_msgs/String.h>
 #include "ur_arm/Joints.h"
 #include "ur_arm/my_func.h"
 #include "ur_arm/PoseMatrix.h"
@@ -24,16 +26,18 @@
 
 // Global Variables
 std::vector<double> curPos;
-double m = 0.28; // the weight of sensor and tool
+double m = 0.16; // the weight of sensor and tool / or 0.28
 double g = 9.793;
 double d = 0.05; // the distance between sensor's output and robot's flange
 geometry_msgs::Vector3 rawForce;
 Eigen::MatrixXf bias(3,1); // set bias below !!
 uint32_t seqseq = 1;
+//string BIAS = "false";
 
 // Function definition
 void getRawData(geometry_msgs::WrenchStamped awrench);
 void getCurRobotState(sensor_msgs::JointState curState);
+//void biasDealtData(std_msgs::String string);
 geometry_msgs::WrenchStamped cacDealtData(geometry_msgs::Vector3 force, std::vector<double> pos);
 
 int main(int argc, char **argv)
@@ -47,8 +51,9 @@ int main(int argc, char **argv)
   bias << 0,0,0;
   // ------------------------------------------------------------------------------
 
-  ros::Subscriber sub1 = n.subscribe<geometry_msgs::WrenchStamped>("/netft_data", 100,getRawData);
+  ros::Subscriber sub1 = n.subscribe<geometry_msgs::WrenchStamped>("/netft_data", 125,getRawData);
   ros::Subscriber sub2 = n.subscribe<sensor_msgs::JointState>("/joint_states", 1, getCurRobotState);
+//  ros::Subscriber sub3 = n.subscribe<std_msgs::String>("/bias_dealt_data", 1,biasDealtData);
   ros::Publisher pub1 = n.advertise<geometry_msgs::WrenchStamped>("/dealt_data", 1);
   usleep(400000);//Leave 0.4s for building the publisher and subscriber
 
@@ -71,6 +76,11 @@ void getRawData(geometry_msgs::WrenchStamped awrench)
 {
     rawForce = awrench.wrench.force;
 }
+
+//void biasDealtData(std_msgs::String string)
+//{
+//    BIAS = string;
+//}
 
 geometry_msgs::WrenchStamped cacDealtData(geometry_msgs::Vector3 force, std::vector<double> pos)
 {
@@ -106,7 +116,7 @@ geometry_msgs::WrenchStamped cacDealtData(geometry_msgs::Vector3 force, std::vec
 
     // transform the force into base frame
     // and eliminate the bias and gravity
-    cacF = rawF - bias + poseRot.transpose()*graInflu;
+    cacF = poseRot*rawF + graInflu;// - bias + poseRot.transpose()*graInflu;
 
     dealtForce.x = cacF(0,0);
     dealtForce.y = cacF(1,0);
