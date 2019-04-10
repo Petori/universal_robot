@@ -29,16 +29,17 @@ std::vector<double> curPos;
 double m = 0.16; // the weight of sensor and tool / or 0.28
 double g = 9.793;
 double d = 0.05; // the distance between sensor's output and robot's flange
-geometry_msgs::Vector3 rawForce;
-Eigen::MatrixXf bias(3,1); // set bias below !!
+static geometry_msgs::WrenchStamped rawForce;
+static geometry_msgs::WrenchStamped biasW;
 uint32_t seqseq = 1;
-//string BIAS = "false";
+
 
 // Function definition
 void getRawData(geometry_msgs::WrenchStamped awrench);
 void getCurRobotState(sensor_msgs::JointState curState);
-//void biasDealtData(std_msgs::String string);
+void biasDealtData(geometry_msgs::WrenchStamped biasWrench);
 geometry_msgs::WrenchStamped cacDealtData(geometry_msgs::Vector3 force, std::vector<double> pos);
+geometry_msgs::WrenchStamped wrenchSubstractAB(geometry_msgs::WrenchStamped A, geometry_msgs::WrenchStamped B);
 
 int main(int argc, char **argv)
 {
@@ -47,21 +48,20 @@ int main(int argc, char **argv)
   ros::AsyncSpinner spinner(1);
   spinner.start();
 
-  // --------------------------------set bias there !!!! --------------------------
-  bias << 0,0,0;
-  // ------------------------------------------------------------------------------
-
   ros::Subscriber sub1 = n.subscribe<geometry_msgs::WrenchStamped>("/netft_data", 125,getRawData);
   ros::Subscriber sub2 = n.subscribe<sensor_msgs::JointState>("/joint_states", 1, getCurRobotState);
-//  ros::Subscriber sub3 = n.subscribe<std_msgs::String>("/bias_dealt_data", 1,biasDealtData);
+  ros::Subscriber sub3 = n.subscribe<geometry_msgs::WrenchStamped>("/bias_dealt_data", 1,biasDealtData);
   ros::Publisher pub1 = n.advertise<geometry_msgs::WrenchStamped>("/dealt_data", 1);
   usleep(400000);//Leave 0.4s for building the publisher and subscriber
+
+  biasW = rawForce;
 
   while(ros::ok())
   {
       usleep(8000);
       geometry_msgs::WrenchStamped data;
-      data = cacDealtData(rawForce, curPos);
+      data = wrenchSubstractAB(rawForce, biasW);
+      data = cacDealtData(data.wrench.force, curPos);
       pub1.publish(data);
   }
   return 0;
@@ -74,13 +74,13 @@ void getCurRobotState(sensor_msgs::JointState curState)
 
 void getRawData(geometry_msgs::WrenchStamped awrench)
 {
-    rawForce = awrench.wrench.force;
+    rawForce = awrench;
 }
 
-//void biasDealtData(std_msgs::String string)
-//{
-//    BIAS = string;
-//}
+void biasDealtData(geometry_msgs::WrenchStamped biasWrench)
+{
+    biasW =   biasWrench;
+}
 
 geometry_msgs::WrenchStamped cacDealtData(geometry_msgs::Vector3 force, std::vector<double> pos)
 {
@@ -112,7 +112,7 @@ geometry_msgs::WrenchStamped cacDealtData(geometry_msgs::Vector3 force, std::vec
 
     graInflu(0,0) = 0;
     graInflu(1,0) = 0;
-    graInflu(2,0) = m*g;
+    graInflu(2,0) = 0;//m*g;
 
     // transform the force into base frame
     // and eliminate the bias and gravity
@@ -136,4 +136,13 @@ geometry_msgs::WrenchStamped cacDealtData(geometry_msgs::Vector3 force, std::vec
     ws.wrench = wrench;
 
     return ws;
+}
+
+geometry_msgs::WrenchStamped wrenchSubstractAB(geometry_msgs::WrenchStamped A, geometry_msgs::WrenchStamped B)
+{
+    geometry_msgs::WrenchStamped C;
+    C.wrench.force.x = A.wrench.force.x - B.wrench.force.x;
+    C.wrench.force.y = A.wrench.force.y - B.wrench.force.y;
+    C.wrench.force.z = A.wrench.force.z - B.wrench.force.z;
+    return C;
 }

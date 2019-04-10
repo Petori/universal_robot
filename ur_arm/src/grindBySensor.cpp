@@ -33,6 +33,7 @@ geometry_msgs::Twist velMoveReverse;
 geometry_msgs::Twist velStop;
 geometry_msgs::WrenchStamped wrenchBias;
 geometry_msgs::WrenchStamped wrenchRaw;
+geometry_msgs::WrenchStamped wrenchNow;
 bool collisionHappen = false;
 bool rule = false;// the collision judging rule.
 ur_arm::Joints torque;
@@ -40,7 +41,7 @@ double collisionForce = 0;
 double collisonThreshold = 2;
 double stepCoefficient = 1;
 //int testPointNum = 10;
-double exploreDistance = 0.5;
+double exploreDistance = 0.3;
 double nowDistance = 0;
 double moveSpeed = 0.05;
 double moveReverseSpeed = 0.05;
@@ -57,6 +58,7 @@ struct datapack
 // Function definition
 void jointStateGet(sensor_msgs::JointState curState);
 void exTorGet(geometry_msgs::WrenchStamped awrench);// Judge if collision happens and calculate newVel
+void biasGET(geometry_msgs::WrenchStamped awrench);// Get bias
 void setVelFoward();
 void setVelBack();
 void setVelMove();
@@ -83,11 +85,13 @@ int main(int argc, char **argv)
   spinner.start();
 
   ros::Publisher vel_pub = n.advertise<geometry_msgs::Twist>("/ur_arm/cmd_tool_vel", 1);
-  ros::Subscriber collisionCheck = n.subscribe<geometry_msgs::WrenchStamped>("/transformed_world", 1, exTorGet);
+  ros::Publisher bias_pub = n.advertise<geometry_msgs::WrenchStamped>("/bias_dealt_data",1);
+  ros::Subscriber collisionCheck = n.subscribe<geometry_msgs::WrenchStamped>("/dealt_data", 1, exTorGet);
+  ros::Subscriber sub1 = n.subscribe<geometry_msgs::WrenchStamped>("/netft_data", 1, biasGET);
   ros::Subscriber recorder1 = n.subscribe<sensor_msgs::JointState>("/joint_states", 1, jointStateGet);
   usleep(500000);//Leave 0.5s for building the subscribers and publishers
 
-  // for servcie call
+  // for servcie call bias ---- bias the topic /transformed_word
   netft_utils::SetBias bias;
   bias.request.toBias = true;
   bias.request.forceMax = 50;
@@ -118,11 +122,11 @@ int main(int argc, char **argv)
       queue<datapack> empty;
       queue20 = empty;
       rule = false;
-      if(ros::service::call("/bias",bias))
-          {
-          ROS_INFO("You called the bias.");
-      }
+
       wrenchBias = wrenchRaw;
+      bias_pub.publish(wrenchBias);
+      ROS_INFO("You called the bias.");
+
       vel_pub.publish(velFoward);
       sleep(1);
       double a=0;
@@ -131,13 +135,13 @@ int main(int argc, char **argv)
       while(!rule&&ros::ok())
       {
           //wrenchReal = wrenchSubstract(wrenchRaw, wrenchBias);
-          nowWrench = wrenchRaw;
+          nowWrench = wrenchNow;
           nowState = jointState;
 
           a = nowWrench.wrench.force.x;
           b = nowWrench.wrench.force.y;
           c = nowWrench.wrench.force.z;
-          collisionForce = sqrt(a*a + b*b + c*c);
+          collisionForce = sqrt(a*a + b*b +c*c);
           rule = (collisionForce>collisonThreshold);
           tempPack = packAssign(nowState,nowWrench,collisionForce);
           if(queue20.size()>10)
@@ -150,7 +154,7 @@ int main(int argc, char **argv)
       // 注意这个循环必须延时，不然采集不到力数据
       for(int n=0;n<50;n++)
       {
-          nowWrench = wrenchRaw;
+          nowWrench = wrenchNow;
           nowState = jointState;
 
           a = nowWrench.wrench.force.x;
@@ -200,6 +204,11 @@ int main(int argc, char **argv)
 }
 
 void exTorGet(geometry_msgs::WrenchStamped awrench)
+{
+    wrenchNow = awrench;
+}
+
+void biasGET(geometry_msgs::WrenchStamped awrench)
 {
     wrenchRaw = awrench;
 }
