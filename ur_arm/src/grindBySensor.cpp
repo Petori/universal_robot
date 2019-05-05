@@ -25,23 +25,23 @@ using std::queue;
 // Global Variables
 std::ofstream fout1("data/jointsRecord.txt");
 std::ofstream fout2("data/virtualStiffness.txt");
-sensor_msgs::JointState jointState;
-geometry_msgs::Twist velFoward;
-geometry_msgs::Twist velBack;
-geometry_msgs::Twist velMove;
-geometry_msgs::Twist velMoveReverse;
-geometry_msgs::Twist velStop;
-geometry_msgs::WrenchStamped wrenchBias;
-geometry_msgs::WrenchStamped wrenchRaw;
-geometry_msgs::WrenchStamped wrenchNow;
+static sensor_msgs::JointState jointState;
+static geometry_msgs::Twist velFoward;
+static geometry_msgs::Twist velBack;
+static geometry_msgs::Twist velMove;
+static geometry_msgs::Twist velMoveReverse;
+static geometry_msgs::Twist velStop;
+static geometry_msgs::WrenchStamped wrenchBias;
+static geometry_msgs::WrenchStamped wrenchRaw;
+static geometry_msgs::WrenchStamped wrenchNow;
 bool collisionHappen = false;
 bool rule = false;// the collision judging rule.
-ur_arm::Joints torque;
+static ur_arm::Joints torque;
 double collisionForce = 0;
-double collisonThreshold = 2;
+double collisonThreshold = 4;
 double stepCoefficient = 1;
 //int testPointNum = 10;
-double exploreDistance = 0.3;
+double exploreDistance = 0.4;
 double nowDistance = 0;
 double moveSpeed = 0.05;
 double moveReverseSpeed = 0.05;
@@ -200,6 +200,7 @@ int main(int argc, char **argv)
   vel_pub.publish(velStop);
   ROS_INFO("Exploration finished.");
   ROS_INFO("I have generated the jointsRecord.txt file.");
+  ros::spin();
   return 0;
 }
 

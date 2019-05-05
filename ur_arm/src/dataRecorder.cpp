@@ -23,9 +23,9 @@ std::ofstream fout4("data/rawWorld[dR].txt");
 std::ofstream fout5("data/transWorld[dR].txt");
 std::ofstream fout6("data/transTool[dR].txt");
 std::ofstream fout7("data/dealtData[dR].txt");
-std::vector<double> curPos;
-std::vector<double> curVel;
-std::vector<double> curEff;
+static std::vector<double> curPos;
+static std::vector<double> curVel;
+static std::vector<double> curEff;
 
 // Function definition
 void recordJointStateToTxt(sensor_msgs::JointState curState);
