@@ -46,7 +46,8 @@ int main(int argc, char **argv)
   ros::init(argc, argv, "getSensorData");
   ros::NodeHandle n;
   ros::AsyncSpinner spinner(1);
-  spinner.start();
+  //spinner.start();
+  ros::Rate r(250);
 
   ros::Subscriber sub1 = n.subscribe<geometry_msgs::WrenchStamped>("/netft_data", 1,getRawData);
   ros::Subscriber sub2 = n.subscribe<sensor_msgs::JointState>("/joint_states", 1, getCurRobotState);
@@ -54,6 +55,8 @@ int main(int argc, char **argv)
   ros::Publisher pub1 = n.advertise<geometry_msgs::WrenchStamped>("/dealt_data", 1);
   usleep(500000);//Leave 0.5s for building the publisher and subscriber
 
+  ros::spinOnce();
+  r.sleep();
   biasW = rawForce;
   ROS_INFO("Please waiting for one second ....");
   sleep(1.0);
@@ -62,16 +65,17 @@ int main(int argc, char **argv)
   geometry_msgs::WrenchStamped *data = new geometry_msgs::WrenchStamped;
   while(ros::ok())
   {
-      ROS_INFO("1");
-      *data = wrenchSubstractAB(rawForce, biasW);
-      ROS_INFO("5");
+      ros::spinOnce();
+      r.sleep();
+      geometry_msgs::WrenchStamped temp;
+      temp = rawForce;
+      *data = wrenchSubstractAB(temp, biasW);
       *data = cacDealtData((*data).wrench.force, curPos);
-      ROS_INFO("6");
       pub1.publish(*data);
-      usleep(8000);
+      //usleep(8000);
   }
+
   delete data;
-  ros::spin();
   return 0;
 }
 
@@ -82,13 +86,7 @@ void getCurRobotState(sensor_msgs::JointState curState)
 
 void getRawData(geometry_msgs::WrenchStamped awrench)
 {
-    ROS_INFO("7");
-    geometry_msgs::WrenchStamped temp;
-    ROS_INFO("8");
-    temp = awrench;
-    ROS_INFO("9");
-    rawForce = temp;
-    ROS_INFO("10");
+    rawForce = awrench;
 }
 
 void biasDealtData(geometry_msgs::WrenchStamped biasWrench)
@@ -154,12 +152,9 @@ geometry_msgs::WrenchStamped cacDealtData(geometry_msgs::Vector3 force, std::vec
 
 geometry_msgs::WrenchStamped wrenchSubstractAB(geometry_msgs::WrenchStamped A, geometry_msgs::WrenchStamped B)
 {
-    ROS_INFO("2");
     geometry_msgs::WrenchStamped C;
-    ROS_INFO("3");
     C.wrench.force.x = A.wrench.force.x - B.wrench.force.x;
     C.wrench.force.y = A.wrench.force.y - B.wrench.force.y;
     C.wrench.force.z = A.wrench.force.z - B.wrench.force.z;
-    ROS_INFO("4");
     return C;
 }
