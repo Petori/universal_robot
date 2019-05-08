@@ -38,10 +38,10 @@ bool collisionHappen = false;
 bool rule = false;// the collision judging rule.
 static ur_arm::Joints torque;
 double collisionForce = 0;
-double collisonThreshold = 4;
+double collisonThreshold = 3;
 double stepCoefficient = 1;
 //int testPointNum = 10;
-double exploreDistance = 0.3;
+double exploreDistance = 0.25;
 double nowDistance = 0;
 double moveSpeed = 0.05;
 double moveReverseSpeed = 0.05;
@@ -432,9 +432,9 @@ double calculateStep(queue<datapack> qq, double cc)
     double movetime;
     double virtualK;
     virtualK = fabs((maxforce-firstpass)/(maxPosition-firstpassPosition));
-    movetime = cc*(-0.0000625*virtualK + 1.125);
-    if(movetime < 0.5)
-        movetime = 0.5;
+    movetime = cc*(-0.0004444*virtualK + 1.2667);
+    if(movetime < 0.6)
+        movetime = 0.6;
     if(movetime > 1)
         movetime = 1;
     //movetime = 1;
