@@ -38,16 +38,25 @@ bool collisionHappen = false;
 bool rule = false;// the collision judging rule.
 static ur_arm::Joints torque;
 double collisionForce = 0;
+double contactForce = 1;
 double collisonThreshold = 3;
 double stepCoefficient = 1;
 //int testPointNum = 10;
-double exploreDistance = 0.25;
+double exploreDistance = 0.2;
 double nowDistance = 0;
-double moveSpeed = 0.05;
-double moveReverseSpeed = 0.05;
-double exploreSpeed = 0.02;
+double moveSpeed = -0.05;
+double moveReverseSpeed = -0.05;
+double exploreSpeed = 0.01;
 double backSpeed = 0.07;
 int explorePointNum = 0;
+double minStiffness = 500;
+double maxStiffness = 1500;
+double minMoveTime = 0.3; // when the exploreSpeed = 0.05
+double maxMoveTime = 0.7;
+double rigidMoveTime = 0.5;
+double coef_a; // the coefficients for step calculation
+double coef_b;
+
 struct datapack
 {
     sensor_msgs::JointState robotState;
@@ -91,6 +100,9 @@ int main(int argc, char **argv)
   ros::Subscriber recorder1 = n.subscribe<sensor_msgs::JointState>("/joint_states", 1, jointStateGet);
   usleep(500000);//Leave 0.5s for building the subscribers and publishers
 
+  coef_a = (minMoveTime - maxMoveTime)/(maxStiffness - minStiffness);
+  coef_b = minMoveTime - coef_a*maxStiffness;
+
   // for servcie call bias ---- bias the topic /transformed_word
   netft_utils::SetBias bias;
   bias.request.toBias = true;
@@ -128,10 +140,12 @@ int main(int argc, char **argv)
       ROS_INFO("You called the bias.");
 
       vel_pub.publish(velFoward);
-      sleep(1);
+      usleep(300000);
       double a=0;
       double b=0;
       double c=0;
+      int qSize = 0;
+
       while(!rule&&ros::ok())
       {
           //wrenchReal = wrenchSubstract(wrenchRaw, wrenchBias);
@@ -144,13 +158,17 @@ int main(int argc, char **argv)
           collisionForce = sqrt(a*a + b*b +c*c);
           rule = (collisionForce>collisonThreshold);
           tempPack = packAssign(nowState,nowWrench,collisionForce);
-          if(queue20.size()>10)
+          qSize = queue20.size();
+
+          if(qSize>250)// The force measure frequency is 250Hz, only reserves data in one second before reaching the collision threshold.
           {
               queue20.pop();
           }
           queue20.push(tempPack);
+          usleep(3000);
       }
       vel_pub.publish(velBack);
+
       // 注意这个循环必须延时，不然采集不到力数据
       for(int n=0;n<50;n++)
       {
@@ -165,20 +183,17 @@ int main(int argc, char **argv)
           queue20.push(tempPack);
           usleep(8000);
       }
-      usleep(100000);
       vel_pub.publish(velStop);
-      usleep(200000);
+      usleep(100000);
       ROS_INFO("I got [%d] point.",explorePointNum);
 
       double movetime;
       recordPointInfo(queue20);
-      int tempsize;
-      tempsize = queue20.size();
       movetime = calculateStep(queue20,stepCoefficient);
 
       nowDistance = nowDistance + movetime*moveSpeed;
       // 这里，加减速导致实际运动距离变小
-      if((0.5*nowDistance)>exploreDistance)
+      if((nowDistance)>exploreDistance)
           {
           break;
       }
@@ -195,9 +210,10 @@ int main(int argc, char **argv)
   }
   vel_pub.publish(velMoveReverse);
   int backTime;
-  backTime = exploreDistance/moveReverseSpeed;
+  backTime = fabs(exploreDistance/moveReverseSpeed);
   sleep(backTime);
   vel_pub.publish(velStop);
+  usleep(200000);
   ROS_INFO("Exploration finished.");
   ROS_INFO("I have generated the jointsRecord.txt file.");
   ros::spin();
@@ -390,56 +406,66 @@ double calculateStep(queue<datapack> qq, double cc)
     pp = qq;
 
     int size;
+    double firstcontact;
+    double firstcontactTime;
     double firstpass;
-    double firstpassPosition;
+    double firstpassTime;
+
     ur_arm::PoseMatrix pose;
+
+    size = pp.size();
+    datapack ttime1;
+    datapack ttime2;
+    ttime1 = pp.front();
+    ttime2 = pp.back();
+    cout<<"Start time of the pack is: "<<ttime1.robotState.header.stamp<<endl;
+    cout<<"End time of the pack is: "<<ttime2.robotState.header.stamp<<endl;
+
     for(int i=0;i<size;i++)
     {
-        datapack dp;
-        dp = pp.front();
+        datapack dp1;
+        dp1 = pp.front();
         pp.pop();
-        if(dp.forceAll>collisonThreshold)
+        if(dp1.forceAll>contactForce)
         {
-            firstpass = dp.forceAll;
-            pose = fKine(dp.robotState.position);
-            firstpassPosition = sqrt(pose.p[0]*pose.p[0]+pose.p[1]*pose.p[1]+pose.p[2]*pose.p[2]);
+            firstcontact = dp1.forceAll;
+            firstcontactTime = dp1.robotState.header.stamp.toSec();
             break;
         }
     }
 
-    int sizenow;
-    sizenow = pp.size();
-    double maxforce;
-    double maxPosition;
-    double lastForce = 0;
-    datapack lastdp;
-    ur_arm::PoseMatrix pose2;
-
-    for(int i=0;i<sizenow;i++)
+    for(int i=0;i<size;i++)
     {
-        datapack dp;
-        dp = pp.front();
+        datapack dp2;
+        dp2 = pp.front();
         pp.pop();
-        if(dp.forceAll>lastForce)
+        if(dp2.forceAll>collisonThreshold)
         {
-            lastdp = dp;
-            lastForce = lastdp.forceAll;
+            firstpass = dp2.forceAll;
+            firstpassTime = dp2.robotState.header.stamp.toSec();
+            break;
         }
     }
-    maxforce = lastdp.forceAll;
-    pose2 = fKine(lastdp.robotState.position);
-    maxPosition = sqrt(pose2.p[0]*pose2.p[0]+pose2.p[1]*pose2.p[1]+pose2.p[2]*pose2.p[2]);
+
     double movetime;
     double virtualK;
-    virtualK = fabs((maxforce-firstpass)/(maxPosition-firstpassPosition));
-    movetime = cc*(-0.0004444*virtualK + 1.2667);
-    if(movetime < 0.6)
-        movetime = 0.6;
-    if(movetime > 1)
-        movetime = 1;
-    //movetime = 1;
+
+    ROS_INFO("First contact force is [%lf].",firstcontact);
+    ROS_INFO("First pass force is [%lf].",firstpass);
+    virtualK = fabs((firstpass-firstcontact)/((firstpassTime-firstcontactTime)*exploreSpeed));
+
+
+    movetime = cc*(coef_a*virtualK + coef_b);
+    if(movetime < minMoveTime)
+        movetime = minMoveTime;
+    if(movetime > maxMoveTime)
+        movetime = maxMoveTime;
+
+    //movetime = rigidMoveTime; // add this to let the movetime be a rigid value
+
     fout2<<virtualK<<endl;
 
+    ROS_INFO("data size is [%d].",size);
     ROS_INFO("Virtual stiffness in this point is [%lf].",virtualK);
     ROS_INFO("Move time is [%lf] s.",movetime);
     return movetime;
