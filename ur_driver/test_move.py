@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-from __future__ import print_function
 import time
 import roslib; roslib.load_manifest('ur_driver')
 import rospy
@@ -44,12 +43,12 @@ def move_disordered():
         JointTrajectoryPoint(positions=q3, velocities=[0]*6, time_from_start=rospy.Duration(4.0))]
     client.send_goal(g)
     client.wait_for_result()
-    
+
 def move_repeated():
     g = FollowJointTrajectoryGoal()
     g.trajectory = JointTrajectory()
     g.trajectory.joint_names = JOINT_NAMES
-    
+
     d = 2.0
     g.trajectory.points = []
     for i in range(10):
@@ -77,10 +76,10 @@ def move_interrupt():
         JointTrajectoryPoint(positions=Q1, velocities=[0]*6, time_from_start=rospy.Duration(2.0)),
         JointTrajectoryPoint(positions=Q2, velocities=[0]*6, time_from_start=rospy.Duration(3.0)),
         JointTrajectoryPoint(positions=Q3, velocities=[0]*6, time_from_start=rospy.Duration(4.0))]
-    
+
     client.send_goal(g)
     time.sleep(2.0)
-    print("Interrupting")
+    print "Interrupting"
     client.send_goal(g)
     try:
         client.wait_for_result()
@@ -92,10 +91,10 @@ def main():
     global client
     try:
         rospy.init_node("test_move", anonymous=True, disable_signals=True)
-        client = actionlib.SimpleActionClient('follow_joint_trajectory', FollowJointTrajectoryAction)
-        print("Waiting for server...")
+        client = actionlib.SimpleActionClient('arm_controller/follow_joint_trajectory', FollowJointTrajectoryAction)
+        print "Waiting for server..."
         client.wait_for_server()
-        print("Connected to server")
+        print "Connected to server"
         #move1()
         move_repeated()
         #move_disordered()
