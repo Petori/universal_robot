@@ -2,23 +2,27 @@ cmake_minimum_required(VERSION 2.8.3)
 project(ur_arm)
 
 ## Add support for C++11, supported in ROS Kinetic and newer
-# add_definitions(-std=c++11)
+add_definitions(-std=c++11)
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
-find_package(catkin REQUIRED COMPONENTS 
-  roscpp  
+find_package(catkin REQUIRED COMPONENTS
+  roscpp
   geometry_msgs
   std_msgs
-  std_srvs 
+  std_srvs
   message_generation
 
-  actionlib  
-  control_msgs   
-  sensor_msgs  
-  tf  
-  trac_ik_lib  
-  trajectory_msgs	
+  actionlib
+  control_msgs
+  sensor_msgs
+  tf
+  trac_ik_lib
+  trajectory_msgs
+
+  moveit_core
+  moveit_ros_planning
+  moveit_ros_planning_interface
 )
 
 ## System dependencies are found with CMake's conventions
@@ -125,7 +129,7 @@ generate_messages(DEPENDENCIES std_msgs)
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-#  INCLUDE_DIRS include
+   INCLUDE_DIRS include
 #  LIBRARIES ur_arm
 #  CATKIN_DEPENDS other_catkin_pkg
 #  DEPENDS system_lib
@@ -215,8 +219,18 @@ add_executable(
   fourPointsExploration
   src/fourPointsExploration.cpp
 )
-
-
+add_executable(
+  dmpGrinding
+  src/dmpGrinding.cpp
+)
+add_executable(
+  circleGoalDetect
+  src/circleGoalDetect.cpp
+)
+add_executable(
+  minitest
+  src/minitest.cpp
+)
 
 target_link_libraries(
   node
@@ -266,9 +280,18 @@ target_link_libraries(
   fourPointsExploration
   ${catkin_LIBRARIES}
 )
-
-
-
+target_link_libraries(
+  dmpGrinding
+  ${catkin_LIBRARIES}
+)
+target_link_libraries(
+  circleGoalDetect
+  ${catkin_LIBRARIES}
+)
+target_link_libraries(
+  minitest
+  ${catkin_LIBRARIES}
+)
 
 add_dependencies(
   node
@@ -318,7 +341,18 @@ add_dependencies(
   fourPointsExploration
   ${catkin_EXPORTED_TARGETS}
 )
-
+add_dependencies(
+  dmpGrinding
+  ${catkin_EXPORTED_TARGETS}
+)
+add_dependencies(
+  circleGoalDetect
+  ${catkin_EXPORTED_TARGETS}
+)
+add_dependencies(
+  minitest
+  ${catkin_EXPORTED_TARGETS}
+)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the

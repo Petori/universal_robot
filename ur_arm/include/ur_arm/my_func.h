@@ -2,6 +2,7 @@
 // My func definition.
 #include <iostream>
 #include <geometry_msgs/Twist.h>
+#include <geometry_msgs/Pose.h>
 #include <vector>
 #include <string>
 #include <math.h>
@@ -673,4 +674,47 @@ Eigen::MatrixXf pinv(Eigen::MatrixXf  A)
     }
     X=(svd.matrixV())*(singularValues_inv_mat)*(svd.matrixU().transpose());//X=VS+U*
     return X;
+}
+
+// 消息类型转换之：ur_arm::PoseMatrix -> geometry_msgs::Pose
+geometry_msgs::Pose urarmPose_2_geomePose(ur_arm::PoseMatrix ppose)
+{
+  geometry_msgs::Pose resultPose;
+  Eigen::Matrix3d rotMat;
+  Eigen::Quaterniond quater;
+
+  rotMat << ppose.n[0],ppose.o[0],ppose.a[0],
+            ppose.n[1],ppose.o[1],ppose.a[1],
+            ppose.n[2],ppose.o[2],ppose.a[2];
+
+  quater = rotMat;
+
+  resultPose.position.x = ppose.p[0];
+  resultPose.position.y = ppose.p[1];
+  resultPose.position.z = ppose.p[2];
+  resultPose.orientation.w = quater.w();
+  resultPose.orientation.x = quater.x();
+  resultPose.orientation.y = quater.y();
+  resultPose.orientation.z = quater.z();
+
+  return resultPose;
+}
+
+// 消息类型转换之：geometry_msgs::Pose -> ur_arm::PoseMatrix
+ur_arm::PoseMatrix geomePose_2_urarmPose(geometry_msgs::Pose ppose)
+{
+  ur_arm::PoseMatrix resultPose;
+  Eigen::Matrix3d rotMat;
+  Eigen::Quaterniond quater(ppose.orientation.w, ppose.orientation.x, ppose.orientation.y, ppose.orientation.z);
+
+  rotMat = quater;
+
+  resultPose.p[0] = ppose.position.x;
+  resultPose.p[1] = ppose.position.y;
+  resultPose.p[2] = ppose.position.z;
+  resultPose.n[0] = rotMat(0,0);resultPose.n[1] = rotMat(1,0);resultPose.n[2] = rotMat(2,0);
+  resultPose.o[0] = rotMat(0,1);resultPose.o[1] = rotMat(1,1);resultPose.o[2] = rotMat(2,1);
+  resultPose.a[0] = rotMat(0,2);resultPose.a[1] = rotMat(1,2);resultPose.a[2] = rotMat(2,2);
+
+  return resultPose;
 }
