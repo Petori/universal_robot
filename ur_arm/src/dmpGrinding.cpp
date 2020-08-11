@@ -16,14 +16,12 @@
 #include <geometry_msgs/WrenchStamped.h>
 #include <tf2_ros/transform_listener.h>
 #include <geometry_msgs/TransformStamped.h>
+#include <geometry_msgs/TwistStamped.h>
 #include <sensor_msgs/JointState.h>
 #include <std_msgs/Int8.h>
-#include "ur_arm/Joints.h"
-#include <moveit/move_group_interface/move_group_interface.h>   // replace the old version "move_group.h"
-#include <moveit/planning_scene_interface/planning_scene_interface.h>
-#include <moveit_msgs/DisplayRobotState.h>
-#include <moveit_msgs/DisplayTrajectory.h>
 #include <tf2_ros/transform_listener.h>
+#include <actionlib/client/simple_action_client.h>
+#include <control_msgs/FollowJointTrajectoryAction.h>
 // 单列
 #include "ur_arm/my_func.h"
 #include "netft_utils/SetBias.h"
@@ -39,10 +37,8 @@ Eigen::MatrixXd dmp_run_once(Eigen::MatrixXd previous_status, double goal, doubl
 void goPose(Eigen::MatrixXd now_status_x, Eigen::MatrixXd now_status_y, Eigen::MatrixXd now_status_z, ur_arm::PoseMatrix pose_);
 //获取机器人当前信息
 void getRobotInfo(sensor_msgs::JointState curState);
-//关节角控制方式，去起始位置
-void goStartPose();
-// 录轨迹数据用的测试位置
-void goTestPose();
+// 纠正关节角的排列顺序
+sensor_msgs::JointState modifyJointState(sensor_msgs::JointState jS);
 
 int main(int argc, char **argv)
 {
@@ -58,8 +54,62 @@ int main(int argc, char **argv)
 
   //去初始位置
   cout<<"去往初始姿态"<<endl;
-  goStartPose();
-  cout<<"到达初始姿态"<<endl;
+  actionlib::SimpleActionClient<control_msgs::FollowJointTrajectoryAction> ur_control("/arm_controller/follow_joint_trajectory/", true);
+
+  ROS_INFO("Waiting for action server to start.");
+  ur_control.waitForServer(); //will wait for infinite time
+  ROS_INFO("Action server started, sending goal.");
+
+  control_msgs::FollowJointTrajectoryGoal goal;
+  goal.trajectory.joint_names = {"shoulder_pan_joint", "shoulder_lift_joint", "elbow_joint", "wrist_1_joint", "wrist_2_joint", "wrist_3_joint"};
+  trajectory_msgs::JointTrajectoryPoint point;
+  point.positions={1.95,-1.31,2.24,-2.5,-1.59,-0.24};
+  point.velocities={0, 0, 0, 0, 0, 0};
+  point.time_from_start=ros::Duration(5.0);
+  goal.trajectory.points.push_back(point);
+
+  ur_control.sendGoal(goal);
+
+  // 函数测试——jointVel_2_cartesianVel（）
+  // sleep(1);
+  // cout<<"函数测试"<<endl<<endl;;
+  // ur_arm::cartesianState cccStates;
+  // sensor_msgs::JointState jjjStates;
+  // jjjStates = urState;
+  // cccStates = jointVel_2_cartesianVel(jjjStates);
+  //
+  // cout<<"关节状态: "<<endl;
+  // cout<<"位置: ";
+  // for(int i=0;i<6;i++)
+  // {
+  //   cout<<jjjStates.position[i]<<",";
+  // }
+  // cout<<endl;
+  // cout<<"速度: ";
+  // for(int i=0;i<6;i++)
+  // {
+  //   cout<<jjjStates.velocity[i]<<",";
+  // }
+  // cout<<endl<<endl;
+  //
+  // cout<<"末端状态: "<<endl;
+  // cout<<"位置: ";
+  // for(int i=0;i<6;i++)
+  // {
+  //   cout<<cccStates.position[i]<<",";
+  // }
+  // cout<<endl;
+  // cout<<"速度";
+  // for(int i=0;i<6;i++)
+  // {
+  //   cout<<cccStates.velocity[i]<<",";
+  // }
+  // cout<<endl<<endl;
+  //测试结束
+
+  ur_control.waitForResult();
+
+  return 0;
 
   // cout<<"是否开始执行测试轨迹？确定请按ENTER 不确定请Ctrl+C"<<endl;
   // while(getchar()!='\n');
@@ -99,6 +149,8 @@ int main(int argc, char **argv)
     }
   }
   cout<<"读入完毕。"<<endl;
+
+
 
   // 暂停等待确认
   cout<<"是否执行加工？确定请按ENTER 不确定请Ctrl+C"<<endl;
@@ -155,8 +207,81 @@ int main(int argc, char **argv)
     previous_status_y = now_status_y;
     now_status_z = dmp_run_once(previous_status_z,goal_z,tao,dt,wi_z);
     previous_status_z = now_status_z;
+
+    // 获取当前位姿保证姿态不变，反解求取下一状态关节角
+    sensor_msgs::JointState tmpState;
+    ur_arm::PoseMatrix tmpPose;// 当前位姿
+    ur_arm::PoseMatrix goalPose;//目标位姿
+
+
+    tmpState = urState;
+    tmpState = modifyJointState(tmpState);// 实物不需要这行
+    tmpPose = fKine(tmpState.position);
+
+    goalPose = tmpPose;
+    goalPose.p[0] = now_status_x(1,0);
+    goalPose.p[1] = now_status_y(1,0);
+    goalPose.p[2] = now_status_z(1,0);
+
+            // 此段判断解系（先不写）
+    int solutionNum = 3;
+            // 判断结束
+
+    ur_arm::AllAng aAng;
+    aAng = invKine(goalPose);
+    if(aAng.ang3[6]==0)
+    {
+      cout<<"反解遇到问题，程序中止..."<<endl;
+      while(true);
+    }
+
+    // 利用速度雅可比计算下一状态的关节速度
+    std::vector<double> goal_joint_pos;//每次都重新定义，就不用clear()了吧？
+    std::vector<double> goal_joint_vel;
+    Eigen::MatrixXf g_jo_vel(6,1);
+    Eigen::MatrixXf g_car_vel(6,1);
+    Eigen::MatrixXf tmpJaco(6,6);
+
+    goal_joint_pos.assign(aAng.ang3.begin(),aAng.ang3.end()); // 关节角赋值
+    goal_joint_pos.pop_back(); // 删掉标志位
+
+    tmpJaco = cacJacob(goal_joint_pos);
+    g_car_vel(0,0) = now_status_x(2,0);
+    g_car_vel(1,0) = now_status_y(2,0);
+    g_car_vel(2,0) = now_status_z(2,0);
+    g_jo_vel = tmpJaco.inverse()*g_car_vel;
+    for(int i=0;i<6;i++)
+    {
+      goal_joint_vel[i] = g_jo_vel(i,0);
+    }
+
     // 执行目标
-    goPose(now_status_x,now_status_y,now_status_z,startpos);
+    double dt;//时间间隔，注意
+    control_msgs::FollowJointTrajectoryGoal goal;
+    goal.trajectory.joint_names = {"shoulder_pan_joint", "shoulder_lift_joint", "elbow_joint", "wrist_1_joint", "wrist_2_joint", "wrist_3_joint"};
+
+    trajectory_msgs::JointTrajectoryPoint point;
+    point.positions = goal_joint_pos;
+    point.velocities = goal_joint_vel;
+    //point.accelerations = {0, 0, 0, 0, 0, 0};
+
+    point.time_from_start=ros::Duration(dt);
+    goal.trajectory.points.push_back(point);
+    ur_control.sendGoal(goal);
+    ur_control.waitForResult();
+
+    // 利用urState给当前状态赋值——加速度不管
+    ur_arm::cartesianState carState;
+    tmpState = urState;
+    tmpState = modifyJointState(tmpState);// 实物不需要这行
+
+    carState = jointVel_2_cartesianVel(tmpState);
+    previous_status_x(1,0) = carState.position[0];
+    previous_status_y(1,0) = carState.position[1];
+    previous_status_z(1,0) = carState.position[2];
+    previous_status_x(2,0) = carState.velocity[0];
+    previous_status_y(2,0) = carState.velocity[1];
+    previous_status_z(2,0) = carState.velocity[2];
   }
   cout<<"运动执行完毕。"<<endl;
 
@@ -222,75 +347,22 @@ void getRobotInfo(sensor_msgs::JointState curState)
   urState = curState;
 }
 
-void goPose(Eigen::MatrixXd now_status_x, Eigen::MatrixXd now_status_y, Eigen::MatrixXd now_status_z, ur_arm::PoseMatrix pose_)
+sensor_msgs::JointState modifyJointState(sensor_msgs::JointState jc)
 {
-  moveit::planning_interface::MoveGroupInterface arm_group("manipulator");
-  std::vector<geometry_msgs::Pose> targetWayPoints;
-  moveit_msgs::RobotTrajectory trajectory;
-  moveit::planning_interface::MoveGroupInterface::Plan move_plan;
-  geometry_msgs::Pose goPose_;
-  geometry_msgs::Pose mid_forrot;
+  sensor_msgs::JointState jS;
+  double tmp;
 
-  mid_forrot = urarmPose_2_geomePose(pose_);
-  goPose_.orientation.w = mid_forrot.orientation.w;
-  goPose_.orientation.x = mid_forrot.orientation.x;
-  goPose_.orientation.y = mid_forrot.orientation.y;
-  goPose_.orientation.z = mid_forrot.orientation.z;
+  tmp = jS.position[0];
+  jS.position[0] = jS.position[2];
+  jS.position[2] = tmp;
 
-  goPose_.position.x = now_status_x(1,0);
-  goPose_.position.y = now_status_y(1,0);
-  goPose_.position.z = now_status_z(1,0);
+  tmp = jS.velocity[0];
+  jS.velocity[0] = jS.velocity[2];
+  jS.velocity[2] = tmp;
 
-  cout<<"当前末端位置为: "<<pose_.p[0]<<", "<<pose_.p[1]<<", "<<pose_.p[2]<<endl;
-  cout<<"现在去往目标位置："<<goPose_.position.x<<", ";
-  cout<<goPose_.position.y<<", "<<goPose_.position.z<<endl;
+  tmp = jS.effort[0];
+  jS.effort[0] = jS.effort[2];
+  jS.effort[2] = tmp;
 
-  arm_group.setPoseTarget(goPose_,tool_frame);
-
-  // targetWayPoints.push_back(goPose_);
-  // arm_group.computeCartesianPath(targetWayPoints,
-  //                                0.02,  // eef_step
-  //                                0.0,   // jump_threshold
-  //                                trajectory);
-  // move_plan.trajectory_ = trajectory;
-
-  arm_group.move();
-
-}
-
-void goStartPose()
-{
-  std::vector<double> sAng;
-  moveit::planning_interface::MoveGroupInterface arm_group("manipulator");
-
-  sAng.clear();
-  // 位置是[x y z] = [0.2616 -0.3663 0.1032]
-  sAng.push_back(1.95);
-  sAng.push_back(-1.31);
-  sAng.push_back(2.24);
-  sAng.push_back(-2.5);
-  sAng.push_back(-1.59);
-  sAng.push_back(-0.24);
-
-  arm_group.setJointValueTarget(sAng);
-  arm_group.move();
-}
-
-void goTestPose()
-{
-  std::vector<double> sAng2;
-  moveit::planning_interface::MoveGroupInterface arm_group("manipulator");
-
-  sAng2.clear();
-  // 位置是[x y z] = [0.3616 -0.0663 0.5032]
-  sAng2.push_back(2.7653);
-  sAng2.push_back(-1.6266);
-  sAng2.push_back(1.4359);
-  sAng2.push_back(-1.3692);
-  sAng2.push_back(-1.5834);
-  sAng2.push_back(0.5754);
-
-  arm_group.setJointValueTarget(sAng2);
-  arm_group.setMaxVelocityScalingFactor(0.05);// 慢点，方便录制
-  arm_group.move();
+  return jS;
 }

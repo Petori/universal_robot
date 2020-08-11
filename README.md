@@ -30,9 +30,18 @@
 
 
 #### Records
+
+2020-8-11
+- 新建消息类型ur_arm/cartesianState
+- 添加函数rot2rpy
+- 新建函数jointVel_2_cartesianVel（已通过测试
+- 完成代码整体逻辑，等待测试
+
 2020-8-10
 - 基于moveit的框架已经控制并调试完毕，但是其无法控制到达路径点的速度和时刻
 - 接下来改用joint_trajectory_controller控制（关节空间层面），本版本(dmpGrinding.cpp)上传用于日后参考
+- 完成调用actionlib的client进行机器人运动控制的测试
+- 接下来需要处理关节空间到笛卡尔空间的速度转换问题
 
 2020-8-8
 - dmp：最简框架（机器人部分）写好了，准备测试

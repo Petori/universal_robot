@@ -10,6 +10,8 @@
 #include <Eigen/Dense>
 #include "ur_arm/PoseMatrix.h"
 #include "ur_arm/AllAng.h"
+#include "ur_arm/Joints.h"
+#include "ur_arm/cartesianState.h"
 
 using std::string;
 using std::exception;
@@ -713,8 +715,68 @@ ur_arm::PoseMatrix geomePose_2_urarmPose(geometry_msgs::Pose ppose)
   resultPose.p[1] = ppose.position.y;
   resultPose.p[2] = ppose.position.z;
   resultPose.n[0] = rotMat(0,0);resultPose.n[1] = rotMat(1,0);resultPose.n[2] = rotMat(2,0);
-  resultPose.o[0] = rotMat(0,1);resultPose.o[1] = rotMat(1,1);resultPose.o[2] = rotMat(2,1);
-  resultPose.a[0] = rotMat(0,2);resultPose.a[1] = rotMat(1,2);resultPose.a[2] = rotMat(2,2);
+  resultPose.o[0] = rotMat(0,0);resultPose.o[1] = rotMat(1,0);resultPose.o[2] = rotMat(2,0);
+  resultPose.a[0] = rotMat(0,0);resultPose.a[1] = rotMat(1,0);resultPose.a[2] = rotMat(2,0);
 
   return resultPose;
+}
+
+vector<double> rot2rpy(ur_arm::PoseMatrix pose)
+{
+  vector<double> rpy;
+  double r;
+  double p;
+  double y;
+  double tmp;
+
+  r = atan2(pose.o[2],pose.a[2]);
+  tmp = sqrt(pose.o[2]*pose.o[2] + pose.a[2]*pose.a[2]);
+  p = atan2(-pose.n[2],tmp);
+  y = atan2(pose.n[1],pose.n[0]);
+
+  rpy.push_back(r);
+  rpy.push_back(p);
+  rpy.push_back(y);
+
+  return rpy;
+}
+
+// 实现UR5从关节空间到笛卡尔空间的速度映射
+ur_arm::cartesianState jointVel_2_cartesianVel(sensor_msgs::JointState jStates)
+{
+  // x,y,z和绕x,y,z的旋转
+  // 根据雅可比速度变换 x' = J*q'
+  ur_arm::cartesianState cStates;
+  Eigen::MatrixXf jVel(6,1);
+  Eigen::MatrixXf cVel(6,1);
+  Eigen::MatrixXf jacob(6,6);
+  ur_arm::PoseMatrix pose;
+  std::vector<double> rpy;
+
+  pose = fKine(jStates.position);
+  for(int i=0;i<3;i++)
+  {
+    cStates.position.push_back(pose.p[i]);
+  }
+  rpy = rot2rpy(pose);
+  for(int i=0;i<3;i++)
+  {
+    cStates.position.push_back(rpy[i]);
+  }
+
+  for(int i=0;i<6;i++)
+  {
+    jVel(i,0) = jStates.velocity[i];
+  }
+  jacob = cacJacob(jStates.position);
+  cVel = jacob*jVel;
+
+  cStates.header = jStates.header;
+
+  for(int i=0;i<6;i++)
+  {
+    cStates.velocity.push_back(cVel(i,0));
+  }
+
+  return cStates;
 }

@@ -90,6 +90,7 @@ add_message_files(
   Joints.msg
   PoseMatrix.msg
   AllAng.msg
+  cartesianState.msg
 )
 add_service_files(
   FILES
