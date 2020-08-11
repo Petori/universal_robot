@@ -148,7 +148,12 @@ int main(int argc, char **argv)
   previous_status_z(2,0) = 0;
   previous_status_z(3,0) = 0;
 
-  while((ros::ok())&&(previous_status_x(0,0)>1e-11))
+  // 定义目标
+  control_msgs::FollowJointTrajectoryGoal path_goal;
+  path_goal.trajectory.joint_names = {"shoulder_pan_joint", "shoulder_lift_joint", "elbow_joint", "wrist_1_joint", "wrist_2_joint", "wrist_3_joint"};
+  double tnow;
+
+  while((ros::ok())&&(previous_status_x(0,0)>1e-7))
   {
     cout<<"previous_status: "<<previous_status_x(0,0)<<", "<<"["<<previous_status_x(1,0)<<", "<<previous_status_y(1,0)<<", "<<previous_status_z(1,0)<<"]";
     cout<<", "<<"["<<previous_status_x(2,0)<<", "<<previous_status_y(2,0)<<", "<<previous_status_z(2,0)<<"]"<<endl;
@@ -206,33 +211,31 @@ int main(int argc, char **argv)
       goal_joint_vel.push_back(g_jo_vel(i,0));
     }
 
-    // 执行目标
-    control_msgs::FollowJointTrajectoryGoal goal;
-    goal.trajectory.joint_names = {"shoulder_pan_joint", "shoulder_lift_joint", "elbow_joint", "wrist_1_joint", "wrist_2_joint", "wrist_3_joint"};
-
     trajectory_msgs::JointTrajectoryPoint point;
     point.positions = goal_joint_pos;
     //point.velocities = goal_joint_vel;
     //point.accelerations = {0, 0, 0, 0, 0, 0};
 
-    point.time_from_start=ros::Duration(dt*10);
-    goal.trajectory.points.push_back(point);
-    ur_control.sendGoal(goal);
-    ur_control.waitForResult();
+    tnow = tnow + dt*10;
+    point.time_from_start=ros::Duration(tnow);
+    path_goal.trajectory.points.push_back(point);
 
     // 利用urState给当前状态赋值——加速度不管
-    ur_arm::cartesianState carState;
-    tmpState = urState;
-    tmpState = modifyJointState(tmpState);// 实物不需要这行
-
-    carState = jointVel_2_cartesianVel(tmpState);
-    previous_status_x(1,0) = carState.position[0];
-    previous_status_y(1,0) = carState.position[1];
-    previous_status_z(1,0) = carState.position[2];
-    previous_status_x(2,0) = carState.velocity[0];
-    previous_status_y(2,0) = carState.velocity[1];
-    previous_status_z(2,0) = carState.velocity[2];
+    // ur_arm::cartesianState carState;
+    // tmpState = urState;
+    // tmpState = modifyJointState(tmpState);// 实物不需要这行
+    //
+    // carState = jointVel_2_cartesianVel(tmpState);
+    // previous_status_x(1,0) = carState.position[0];
+    // previous_status_y(1,0) = carState.position[1];
+    // previous_status_z(1,0) = carState.position[2];
+    // previous_status_x(2,0) = carState.velocity[0];
+    // previous_status_y(2,0) = carState.velocity[1];
+    // previous_status_z(2,0) = carState.velocity[2];
   }
+  // 执行目标
+  ur_control.sendGoal(path_goal);
+  ur_control.waitForResult();
   cout<<"运动执行完毕。"<<endl;
 
   return 0;
