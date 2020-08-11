@@ -30,13 +30,12 @@ using namespace std;
 
 #define n_rfs 30 // 基函数个数
 sensor_msgs::JointState urState;  //机械臂当前状态
-string tool_frame = "tool0"; // 末端坐标系
 
 // dmp迭代函数
 Eigen::MatrixXd dmp_run_once(Eigen::MatrixXd previous_status, double goal, double tao, double dt, double wi[n_rfs]);
 void goPose(Eigen::MatrixXd now_status_x, Eigen::MatrixXd now_status_y, Eigen::MatrixXd now_status_z, ur_arm::PoseMatrix pose_);
 //获取机器人当前信息
-void getRobotInfo(sensor_msgs::JointState curState);
+void getRobotInfo(const sensor_msgs::JointState& curState);
 // 纠正关节角的排列顺序
 sensor_msgs::JointState modifyJointState(sensor_msgs::JointState jS);
 
@@ -56,67 +55,18 @@ int main(int argc, char **argv)
   cout<<"去往初始姿态"<<endl;
   actionlib::SimpleActionClient<control_msgs::FollowJointTrajectoryAction> ur_control("/arm_controller/follow_joint_trajectory/", true);
 
-  ROS_INFO("Waiting for action server to start.");
-  ur_control.waitForServer(); //will wait for infinite time
-  ROS_INFO("Action server started, sending goal.");
+  ur_control.waitForServer();
 
   control_msgs::FollowJointTrajectoryGoal goal;
   goal.trajectory.joint_names = {"shoulder_pan_joint", "shoulder_lift_joint", "elbow_joint", "wrist_1_joint", "wrist_2_joint", "wrist_3_joint"};
   trajectory_msgs::JointTrajectoryPoint point;
   point.positions={1.95,-1.31,2.24,-2.5,-1.59,-0.24};
   point.velocities={0, 0, 0, 0, 0, 0};
-  point.time_from_start=ros::Duration(5.0);
+  point.time_from_start=ros::Duration(1.0);
   goal.trajectory.points.push_back(point);
 
   ur_control.sendGoal(goal);
-
-  // 函数测试——jointVel_2_cartesianVel（）
-  // sleep(1);
-  // cout<<"函数测试"<<endl<<endl;;
-  // ur_arm::cartesianState cccStates;
-  // sensor_msgs::JointState jjjStates;
-  // jjjStates = urState;
-  // cccStates = jointVel_2_cartesianVel(jjjStates);
-  //
-  // cout<<"关节状态: "<<endl;
-  // cout<<"位置: ";
-  // for(int i=0;i<6;i++)
-  // {
-  //   cout<<jjjStates.position[i]<<",";
-  // }
-  // cout<<endl;
-  // cout<<"速度: ";
-  // for(int i=0;i<6;i++)
-  // {
-  //   cout<<jjjStates.velocity[i]<<",";
-  // }
-  // cout<<endl<<endl;
-  //
-  // cout<<"末端状态: "<<endl;
-  // cout<<"位置: ";
-  // for(int i=0;i<6;i++)
-  // {
-  //   cout<<cccStates.position[i]<<",";
-  // }
-  // cout<<endl;
-  // cout<<"速度";
-  // for(int i=0;i<6;i++)
-  // {
-  //   cout<<cccStates.velocity[i]<<",";
-  // }
-  // cout<<endl<<endl;
-  //测试结束
-
   ur_control.waitForResult();
-
-  return 0;
-
-  // cout<<"是否开始执行测试轨迹？确定请按ENTER 不确定请Ctrl+C"<<endl;
-  // while(getchar()!='\n');
-  // cout<<"开始执行测试轨迹"<<endl;
-  // goTestPose();
-  // cout<<"执行完毕"<<endl;
-
   // 从文件读取圆心坐标
   ifstream fin("/home/petori/data/parameter/cc_pos.txt");
   cout<<"读入目标位置..."<<endl;
@@ -148,9 +98,6 @@ int main(int argc, char **argv)
       fin_w>>wi_z[i-2*n_rfs];
     }
   }
-  cout<<"读入完毕。"<<endl;
-
-
 
   // 暂停等待确认
   cout<<"是否执行加工？确定请按ENTER 不确定请Ctrl+C"<<endl;
@@ -159,8 +106,11 @@ int main(int argc, char **argv)
   // 获取当前机器人末端的笛卡尔位置和姿态
   std::vector<double> startang;
   ur_arm::PoseMatrix startpos;
+  sensor_msgs::JointState cccState;
 
-  startang = urState.position;
+  //ros::spinOnce();
+  cccState = modifyJointState(urState);// 实物去掉这行
+  startang = cccState.position;
   startpos = fKine(startang);
 
   // 按笛卡尔空间拆分----每维单独一组dmp
@@ -198,9 +148,10 @@ int main(int argc, char **argv)
   previous_status_z(2,0) = 0;
   previous_status_z(3,0) = 0;
 
-
-  while(now_status_x(0,0)>0)
+  while((ros::ok())&&(previous_status_x(0,0)>1e-11))
   {
+    cout<<"previous_status: "<<previous_status_x(0,0)<<", "<<"["<<previous_status_x(1,0)<<", "<<previous_status_y(1,0)<<", "<<previous_status_z(1,0)<<"]";
+    cout<<", "<<"["<<previous_status_x(2,0)<<", "<<previous_status_y(2,0)<<", "<<previous_status_z(2,0)<<"]"<<endl;
     now_status_x = dmp_run_once(previous_status_x,goal_x,tao,dt,wi_x);
     previous_status_x = now_status_x;
     now_status_y = dmp_run_once(previous_status_y,goal_y,tao,dt,wi_y);
@@ -212,7 +163,6 @@ int main(int argc, char **argv)
     sensor_msgs::JointState tmpState;
     ur_arm::PoseMatrix tmpPose;// 当前位姿
     ur_arm::PoseMatrix goalPose;//目标位姿
-
 
     tmpState = urState;
     tmpState = modifyJointState(tmpState);// 实物不需要这行
@@ -232,7 +182,7 @@ int main(int argc, char **argv)
     if(aAng.ang3[6]==0)
     {
       cout<<"反解遇到问题，程序中止..."<<endl;
-      while(true);
+      return 0;
     }
 
     // 利用速度雅可比计算下一状态的关节速度
@@ -250,22 +200,22 @@ int main(int argc, char **argv)
     g_car_vel(1,0) = now_status_y(2,0);
     g_car_vel(2,0) = now_status_z(2,0);
     g_jo_vel = tmpJaco.inverse()*g_car_vel;
+
     for(int i=0;i<6;i++)
     {
-      goal_joint_vel[i] = g_jo_vel(i,0);
+      goal_joint_vel.push_back(g_jo_vel(i,0));
     }
 
     // 执行目标
-    double dt;//时间间隔，注意
     control_msgs::FollowJointTrajectoryGoal goal;
     goal.trajectory.joint_names = {"shoulder_pan_joint", "shoulder_lift_joint", "elbow_joint", "wrist_1_joint", "wrist_2_joint", "wrist_3_joint"};
 
     trajectory_msgs::JointTrajectoryPoint point;
     point.positions = goal_joint_pos;
-    point.velocities = goal_joint_vel;
+    //point.velocities = goal_joint_vel;
     //point.accelerations = {0, 0, 0, 0, 0, 0};
 
-    point.time_from_start=ros::Duration(dt);
+    point.time_from_start=ros::Duration(dt*10);
     goal.trajectory.points.push_back(point);
     ur_control.sendGoal(goal);
     ur_control.waitForResult();
@@ -342,15 +292,18 @@ Eigen::MatrixXd dmp_run_once(Eigen::MatrixXd previous_status, double goal, doubl
   return now_status;
 }
 
-void getRobotInfo(sensor_msgs::JointState curState)
+void getRobotInfo(const sensor_msgs::JointState& curState)
 {
   urState = curState;
+  //cout<<"hi"<<endl;
 }
 
 sensor_msgs::JointState modifyJointState(sensor_msgs::JointState jc)
 {
   sensor_msgs::JointState jS;
   double tmp;
+
+  jS = jc;
 
   tmp = jS.position[0];
   jS.position[0] = jS.position[2];
