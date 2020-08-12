@@ -11,7 +11,6 @@ using namespace std;
 
 
 int main(int argc, char const *argv[]) {
-  /* code */
 
   // 声明变量和函数
   double circle_pos[3];
@@ -19,16 +18,11 @@ int main(int argc, char const *argv[]) {
   // 开始检测圆
 
 
-  // 打印结果到窗口供检查
+  // 打印结果到窗口供检查并将圆心坐标写入文件
   ofstream fout("/home/petori/data/parameter/cc_pos.txt");
   for(int i=0;i<3;i++)
   {
     fout<<circle_pos[i]<<endl;
   }
-
-
-  // 将圆心坐标写入文件
-
-
   return 0;
 }
