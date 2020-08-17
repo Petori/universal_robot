@@ -30,6 +30,13 @@
 
 
 #### Records
+2020-8-17
+- circleGoalDetect测试完成，精度很差，约有10cm
+- minitest的更改是为了测试话题读取
+
+2020-8-12
+- 编写circleGoalDetect.cpp的大致框架
+
 2020-8-12
 - 把ur_arm/src的四个文件还原到初始状态，丢失的是为了打磨实验做的更改（速度、加速度等
 

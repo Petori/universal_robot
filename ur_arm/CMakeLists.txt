@@ -23,8 +23,12 @@ find_package(catkin REQUIRED COMPONENTS
   moveit_core
   moveit_ros_planning
   moveit_ros_planning_interface
-)
 
+  cv_bridge
+  image_transport
+)
+find_package(OpenCV REQUIRED)
+find_package(VISP REQUIRED)
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
 
@@ -147,6 +151,8 @@ catkin_package(
 include_directories(
   include
   ${catkin_INCLUDE_DIRS}
+  ${VISP_INCLUDE_DIRS}
+  ${OpenCV_INCLUDE_DIRS}
 )
 
 ## Declare a C++ library
@@ -292,10 +298,12 @@ target_link_libraries(
 target_link_libraries(
   circleGoalDetect
   ${catkin_LIBRARIES}
+  ${OpenCV_LIBS}
 )
 target_link_libraries(
   minitest
   ${catkin_LIBRARIES}
+  ${OpenCV_LIBS}
 )
 target_link_libraries(
   dmpMoving
