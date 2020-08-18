@@ -29,7 +29,11 @@
 using namespace std;
 
 #define n_rfs 30 // 基函数个数
-sensor_msgs::JointState urState;  //机械臂当前状态
+sensor_msgs::JointState urState;  // 机械臂当前状态
+const double coord_bias[3] = {0.051, -0.058, 0.33};   // 相机测量误差
+int solutionNum = 6;    // 反解解系列
+double dt = 0.0013;      // dmp迭代步长
+double timeIncrease = 20;
 
 // dmp迭代函数
 Eigen::MatrixXd dmp_run_once(Eigen::MatrixXd previous_status, double goal, double tao, double dt, double wi[n_rfs]);
@@ -38,6 +42,8 @@ void goPose(Eigen::MatrixXd now_status_x, Eigen::MatrixXd now_status_y, Eigen::M
 void getRobotInfo(const sensor_msgs::JointState& curState);
 // 纠正关节角的排列顺序
 sensor_msgs::JointState modifyJointState(sensor_msgs::JointState jS);
+// 求空间三点的圆心
+Eigen::MatrixXd solveCircleCenter(Eigen::MatrixXd point3d);
 
 int main(int argc, char **argv)
 {
@@ -53,29 +59,49 @@ int main(int argc, char **argv)
 
   //去初始位置
   cout<<"去往初始姿态"<<endl;
-  actionlib::SimpleActionClient<control_msgs::FollowJointTrajectoryAction> ur_control("/arm_controller/follow_joint_trajectory/", true);
+  actionlib::SimpleActionClient<control_msgs::FollowJointTrajectoryAction> ur_control("/follow_joint_trajectory/", true);
 
   ur_control.waitForServer();
 
   control_msgs::FollowJointTrajectoryGoal goal;
   goal.trajectory.joint_names = {"shoulder_pan_joint", "shoulder_lift_joint", "elbow_joint", "wrist_1_joint", "wrist_2_joint", "wrist_3_joint"};
   trajectory_msgs::JointTrajectoryPoint point;
-  point.positions={1.95,-1.31,2.24,-2.5,-1.59,-0.24};
+  point.positions={-1.9009,-1.6507,-1.8012,-2.8312,0.3301,0};
   point.velocities={0, 0, 0, 0, 0, 0};
-  point.time_from_start=ros::Duration(1.0);
+  point.time_from_start=ros::Duration(3.0);
   goal.trajectory.points.push_back(point);
 
   ur_control.sendGoal(goal);
   ur_control.waitForResult();
-  // 从文件读取圆心坐标
-  ifstream fin("/home/petori/data/parameter/cc_pos.txt");
-  cout<<"读入目标位置..."<<endl;
-  double goal_pos[3];
+
+  // 从文件读取识别的三个靶标点
+  ifstream fin_3b("/home/petori/data/parameter/detect_circles.txt");
+  cout<<"读入三个靶标点..."<<endl;
+  Eigen::MatrixXd point3b(3,3);
+  char tmp1;
+  double tmp2;
   for(int i=0;i<3;i++)
   {
-    fin>>goal_pos[i];
-    cout<<goal_pos[i]<<endl;
+    for(int j=0;j<3;j++)
+    {
+      fin_3b>>tmp1;
+      fin_3b>>tmp2;
+      point3b(i,j) = tmp2;
+    }
+    fin_3b>>tmp1;
   }
+  cout<<"三个靶标点："<<endl<<point3b<<endl;
+
+  // 计算三个靶标点构成的圆心,并补偿相机测量误差
+  Eigen::MatrixXd centerP(3,1);
+  double goal_pos[3];
+
+  centerP = solveCircleCenter(point3b);
+  cout<<"圆心坐标："<<endl<<centerP.transpose()<<endl;
+
+  goal_pos[0] = centerP(0,0) + coord_bias[0];
+  goal_pos[1] = centerP(1,0) + coord_bias[1];
+  goal_pos[2] = centerP(2,0) + coord_bias[2];
 
   // 从文件读取DMP参数
   ifstream fin_w("/home/petori/data/parameter/dmp_params.txt");
@@ -130,7 +156,6 @@ int main(int argc, char **argv)
   goal_z = goal_pos[2];
 
   double tao = 1;
-  double dt = 0.004;
 
   // 赋初值
   previous_status_x(0,0) = 1;
@@ -155,8 +180,8 @@ int main(int argc, char **argv)
 
   while((ros::ok())&&(previous_status_x(0,0)>1e-4))
   {
-    cout<<"previous_status: "<<previous_status_x(0,0)<<", "<<"["<<previous_status_x(1,0)<<", "<<previous_status_y(1,0)<<", "<<previous_status_z(1,0)<<"]";
-    cout<<", "<<"["<<previous_status_x(2,0)<<", "<<previous_status_y(2,0)<<", "<<previous_status_z(2,0)<<"]"<<endl;
+    //cout<<"previous_status: "<<previous_status_x(0,0)<<", "<<"位置: "<<"["<<previous_status_x(1,0)<<", "<<previous_status_y(1,0)<<", "<<previous_status_z(1,0)<<"]";
+    //cout<<", "<<"速度: "<<"["<<previous_status_x(2,0)<<", "<<previous_status_y(2,0)<<", "<<previous_status_z(2,0)<<"]"<<endl;
     now_status_x = dmp_run_once(previous_status_x,goal_x,tao,dt,wi_x);
     previous_status_x = now_status_x;
     now_status_y = dmp_run_once(previous_status_y,goal_y,tao,dt,wi_y);
@@ -170,7 +195,7 @@ int main(int argc, char **argv)
     ur_arm::PoseMatrix goalPose;//目标位姿
 
     tmpState = urState;
-    tmpState = modifyJointState(tmpState);// 实物不需要这行
+    //tmpState = modifyJointState(tmpState);// 实物不需要这行
     tmpPose = fKine(tmpState.position);
 
     goalPose = tmpPose;
@@ -178,13 +203,9 @@ int main(int argc, char **argv)
     goalPose.p[1] = now_status_y(1,0);
     goalPose.p[2] = now_status_z(1,0);
 
-            // 此段判断解系（先不写）
-    int solutionNum = 3;
-            // 判断结束
-
     ur_arm::AllAng aAng;
     aAng = invKine(goalPose);
-    if(aAng.ang3[6]==0)
+    if(aAng.ang6[6]==0)
     {
       cout<<"反解遇到问题，程序中止..."<<endl;
       return 0;
@@ -197,7 +218,7 @@ int main(int argc, char **argv)
     Eigen::MatrixXf g_car_vel(6,1);
     Eigen::MatrixXf tmpJaco(6,6);
 
-    goal_joint_pos.assign(aAng.ang3.begin(),aAng.ang3.end()); // 关节角赋值
+    goal_joint_pos.assign(aAng.ang6.begin(),aAng.ang6.end()); // 关节角赋值
     goal_joint_pos.pop_back(); // 删掉标志位
 
     tmpJaco = cacJacob(goal_joint_pos);
@@ -214,9 +235,10 @@ int main(int argc, char **argv)
     trajectory_msgs::JointTrajectoryPoint point;
     point.positions = goal_joint_pos;
     //point.velocities = goal_joint_vel; // 不用速度更安全
+    point.velocities = {0, 0, 0, 0, 0, 0};
     //point.accelerations = {0, 0, 0, 0, 0, 0};
 
-    tnow = tnow + dt*10;
+    tnow = tnow + dt*timeIncrease;
     point.time_from_start=ros::Duration(tnow);
     path_goal.trajectory.points.push_back(point);
   }
@@ -308,4 +330,40 @@ sensor_msgs::JointState modifyJointState(sensor_msgs::JointState jc)
   jS.effort[2] = tmp;
 
   return jS;
+}
+
+Eigen::MatrixXd solveCircleCenter(Eigen::MatrixXd point3d)
+{
+  Eigen::MatrixXd centerpoint(3,1);
+  double a1, b1, c1, d1;
+  double a2, b2, c2, d2;
+  double a3, b3, c3, d3;
+
+  double x1 = point3d(0,0); double y1 = point3d(0,1); double z1 = point3d(0,2);
+  double x2 = point3d(1,0); double y2 = point3d(1,1); double z2 = point3d(1,2);
+  double x3 = point3d(2,0); double y3 = point3d(2,1); double z3 = point3d(2,2);
+
+  a1 = (y1*z2 - y2*z1 - y1*z3 + y3*z1 + y2*z3 - y3*z2);
+  b1 = -(x1*z2 - x2*z1 - x1*z3 + x3*z1 + x2*z3 - x3*z2);
+  c1 = (x1*y2 - x2*y1 - x1*y3 + x3*y1 + x2*y3 - x3*y2);
+  d1 = -(x1*y2*z3 - x1*y3*z2 - x2*y1*z3 + x2*y3*z1 + x3*y1*z2 - x3*y2*z1);
+
+  a2 = 2 * (x2 - x1);
+  b2 = 2 * (y2 - y1);
+  c2 = 2 * (z2 - z1);
+  d2 = x1 * x1 + y1 * y1 + z1 * z1 - x2 * x2 - y2 * y2 - z2 * z2;
+
+  a3 = 2 * (x3 - x1);
+  b3 = 2 * (y3 - y1);
+  c3 = 2 * (z3 - z1);
+  d3 = x1 * x1 + y1 * y1 + z1 * z1 - x3 * x3 - y3 * y3 - z3 * z3;
+
+  centerpoint(0,0) = -(b1*c2*d3 - b1*c3*d2 - b2*c1*d3 + b2*c3*d1 + b3*c1*d2 - b3*c2*d1)
+      /(a1*b2*c3 - a1*b3*c2 - a2*b1*c3 + a2*b3*c1 + a3*b1*c2 - a3*b2*c1);
+  centerpoint(1,0) =  (a1*c2*d3 - a1*c3*d2 - a2*c1*d3 + a2*c3*d1 + a3*c1*d2 - a3*c2*d1)
+      /(a1*b2*c3 - a1*b3*c2 - a2*b1*c3 + a2*b3*c1 + a3*b1*c2 - a3*b2*c1);
+  centerpoint(2,0) = -(a1*b2*d3 - a1*b3*d2 - a2*b1*d3 + a2*b3*d1 + a3*b1*d2 - a3*b2*d1)
+      /(a1*b2*c3 - a1*b3*c2 - a2*b1*c3 + a2*b3*c1 + a3*b1*c2 - a3*b2*c1);
+
+  return centerpoint;
 }

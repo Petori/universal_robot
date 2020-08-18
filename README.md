@@ -30,11 +30,17 @@
 
 
 #### Records
+2020-8-18
+- 根据circleGoalDetect的三点调整dmpGrinding，完成整体框架
+- 增加dmp_pre_grinding.cpp用于生成供模仿的打磨路径,也可以用于测试相机测量的偏差值
+- dmpGrinding.cpp调试完毕，偏差值以后根据打磨情况再做调整
+- 明日工作：把代码里关于实物和仿真的部分用宏区分开来
+
 2020-8-17
 - circleGoalDetect测试完成，精度很差，约有10cm
 - minitest的更改是为了测试话题读取
 
-2020-8-12
+2020-8-16
 - 编写circleGoalDetect.cpp的大致框架
 
 2020-8-12

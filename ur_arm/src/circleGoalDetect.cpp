@@ -19,7 +19,7 @@ Mat mat_image_rgb;
 Mat mat_image_depth;
 bool show_image=true;
 int minR = 0; // 最小圆半径
-int maxR = 50; // 最大圆半径
+int maxR = 12; // 最大圆半径
 //realsense相机话题
 std::string image_rgb_str =  "camera/color/image_raw";
 std::string image_depth_str = "camera/depth/image_rect_raw";

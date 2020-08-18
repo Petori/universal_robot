@@ -242,6 +242,10 @@ add_executable(
   dmpMoving
   src/dmpMoving.cpp
 )
+add_executable(
+  dmp_pre_grinding
+  src/dmp_pre_grinding.cpp
+)
 
 target_link_libraries(
   node
@@ -309,6 +313,10 @@ target_link_libraries(
   dmpMoving
   ${catkin_LIBRARIES}
 )
+target_link_libraries(
+  dmp_pre_grinding
+  ${catkin_LIBRARIES}
+)
 
 add_dependencies(
   node
@@ -372,6 +380,10 @@ add_dependencies(
 )
 add_dependencies(
   dmpMoving
+  ${catkin_EXPORTED_TARGETS}
+)
+add_dependencies(
+  dmp_pre_grinding
   ${catkin_EXPORTED_TARGETS}
 )
 ## Rename C++ executable without prefix
