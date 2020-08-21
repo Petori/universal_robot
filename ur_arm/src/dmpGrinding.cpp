@@ -28,11 +28,14 @@
 
 using namespace std;
 
+//#define sim_exp 1  //  仿真运行时取消注释此行
+#define real_exp 1  //  实物运行时取消注释此行
 #define n_rfs 30 // 基函数个数
 sensor_msgs::JointState urState;  // 机械臂当前状态
-const double coord_bias[3] = {0.051, -0.058, 0.33};   // 相机测量误差
-int solutionNum = 6;    // 反解解系列
-double dt = 0.0013;      // dmp迭代步长
+const double coord_bias[3] = {0, 0.06, 0.325};   // 相机测量误差
+int solutionNum = 8;    // 反解解系列
+double tao = 1;
+double dt = 0.0013;      // dmp迭代步长——与学习时的dt取同样的值
 double timeIncrease = 20;
 
 // dmp迭代函数
@@ -44,6 +47,8 @@ void getRobotInfo(const sensor_msgs::JointState& curState);
 sensor_msgs::JointState modifyJointState(sensor_msgs::JointState jS);
 // 求空间三点的圆心
 Eigen::MatrixXd solveCircleCenter(Eigen::MatrixXd point3d);
+// 检查路径
+bool checkPath(control_msgs::FollowJointTrajectoryGoal path);
 
 int main(int argc, char **argv)
 {
@@ -59,14 +64,21 @@ int main(int argc, char **argv)
 
   //去初始位置
   cout<<"去往初始姿态"<<endl;
+
+  #ifdef sim_exp
+  actionlib::SimpleActionClient<control_msgs::FollowJointTrajectoryAction> ur_control("/arm_controller/follow_joint_trajectory/", true);
+  #endif
+
+  #ifdef real_exp
   actionlib::SimpleActionClient<control_msgs::FollowJointTrajectoryAction> ur_control("/follow_joint_trajectory/", true);
+  #endif
 
   ur_control.waitForServer();
 
   control_msgs::FollowJointTrajectoryGoal goal;
   goal.trajectory.joint_names = {"shoulder_pan_joint", "shoulder_lift_joint", "elbow_joint", "wrist_1_joint", "wrist_2_joint", "wrist_3_joint"};
   trajectory_msgs::JointTrajectoryPoint point;
-  point.positions={-1.9009,-1.6507,-1.8012,-2.8312,0.3301,0};
+  point.positions={-1.1346,-1.2644,-2.2733,-2.7455,-1.1346,0};
   point.velocities={0, 0, 0, 0, 0, 0};
   point.time_from_start=ros::Duration(3.0);
   goal.trajectory.points.push_back(point);
@@ -135,9 +147,16 @@ int main(int argc, char **argv)
   sensor_msgs::JointState cccState;
 
   //ros::spinOnce();
-  cccState = modifyJointState(urState);// 实物去掉这行
+  cccState = urState;
+
+  #ifdef sim_exp
+  cccState = modifyJointState(cccState);
+  #endif
+
   startang = cccState.position;
   startpos = fKine(startang);
+
+  //cout<<"startpos: "<<endl<<startpos<<endl;
 
   // 按笛卡尔空间拆分----每维单独一组dmp
   Eigen::MatrixXd now_status_x(4,1);
@@ -154,8 +173,6 @@ int main(int argc, char **argv)
   goal_x = goal_pos[0];
   goal_y = goal_pos[1];
   goal_z = goal_pos[2];
-
-  double tao = 1;
 
   // 赋初值
   previous_status_x(0,0) = 1;
@@ -195,42 +212,45 @@ int main(int argc, char **argv)
     ur_arm::PoseMatrix goalPose;//目标位姿
 
     tmpState = urState;
-    //tmpState = modifyJointState(tmpState);// 实物不需要这行
+
+    #ifdef sim_exp
+    tmpState = modifyJointState(tmpState);// 实物不需要这行
+    #endif
+
     tmpPose = fKine(tmpState.position);
 
     goalPose = tmpPose;
     goalPose.p[0] = now_status_x(1,0);
     goalPose.p[1] = now_status_y(1,0);
     goalPose.p[2] = now_status_z(1,0);
+    //cout<<"goalPose: "<<endl<<goalPose<<endl;
 
     ur_arm::AllAng aAng;
     aAng = invKine(goalPose);
-    if(aAng.ang6[6]==0)
+    if(aAng.ang8[6]==0)
     {
       cout<<"反解遇到问题，程序中止..."<<endl;
       return 0;
     }
-
     // 利用速度雅可比计算下一状态的关节速度
     std::vector<double> goal_joint_pos;//每次都重新定义，就不用clear()了吧？
-    std::vector<double> goal_joint_vel;
-    Eigen::MatrixXf g_jo_vel(6,1);
-    Eigen::MatrixXf g_car_vel(6,1);
-    Eigen::MatrixXf tmpJaco(6,6);
+    // std::vector<double> goal_joint_vel;
+    // Eigen::MatrixXf g_jo_vel(6,1);
+    // Eigen::MatrixXf g_car_vel(6,1);
+    // Eigen::MatrixXf tmpJaco(6,6);
 
-    goal_joint_pos.assign(aAng.ang6.begin(),aAng.ang6.end()); // 关节角赋值
+    goal_joint_pos.assign(aAng.ang8.begin(),aAng.ang8.end()); // 关节角赋值
     goal_joint_pos.pop_back(); // 删掉标志位
-
-    tmpJaco = cacJacob(goal_joint_pos);
-    g_car_vel(0,0) = now_status_x(2,0);
-    g_car_vel(1,0) = now_status_y(2,0);
-    g_car_vel(2,0) = now_status_z(2,0);
-    g_jo_vel = tmpJaco.inverse()*g_car_vel;
-
-    for(int i=0;i<6;i++)
-    {
-      goal_joint_vel.push_back(g_jo_vel(i,0));
-    }
+    // tmpJaco = cacJacob(goal_joint_pos);
+    // g_car_vel(0,0) = now_status_x(2,0);
+    // g_car_vel(1,0) = now_status_y(2,0);
+    // g_car_vel(2,0) = now_status_z(2,0);
+    // g_jo_vel = tmpJaco.inverse()*g_car_vel;
+    //
+    // for(int i=0;i<6;i++)
+    // {
+    //   goal_joint_vel.push_back(g_jo_vel(i,0));
+    // }
 
     trajectory_msgs::JointTrajectoryPoint point;
     point.positions = goal_joint_pos;
@@ -241,11 +261,23 @@ int main(int argc, char **argv)
     tnow = tnow + dt*timeIncrease;
     point.time_from_start=ros::Duration(tnow);
     path_goal.trajectory.points.push_back(point);
+    //cout<<"第一组关节角: "<<endl<<point<<endl;
+    //cout<<"["<<goal_joint_pos[0]<<","<<goal_joint_pos[1]<<","<<goal_joint_pos[2]<<",";
+    //cout<<goal_joint_pos[3]<<","<<goal_joint_pos[4]<<","<<goal_joint_pos[5]<<"]"<<endl;
+    //return 0;
   }
+  //return 0;
   // 执行目标
-  ur_control.sendGoal(path_goal);
-  ur_control.waitForResult();
-  cout<<"运动执行完毕。"<<endl;
+  if(checkPath(path_goal))
+  {
+    ur_control.sendGoal(path_goal);
+    ur_control.waitForResult();
+    cout<<"运动执行完毕。"<<endl;
+  }
+  else
+  {
+    cout<<"路径有问题，程序终止。"<<endl;
+  }
 
   return 0;
 }
@@ -366,4 +398,53 @@ Eigen::MatrixXd solveCircleCenter(Eigen::MatrixXd point3d)
       /(a1*b2*c3 - a1*b3*c2 - a2*b1*c3 + a2*b3*c1 + a3*b1*c2 - a3*b2*c1);
 
   return centerpoint;
+}
+
+bool checkPath(control_msgs::FollowJointTrajectoryGoal path)
+{
+  trajectory_msgs::JointTrajectory traj;
+  trajectory_msgs::JointTrajectoryPoint point_tmp;
+  std::vector<double> anglast;
+  std::vector<double> angnow;
+  double dis;
+  bool status = true;
+
+  traj = path.trajectory;
+  point_tmp = traj.points.at(traj.points.size()-1);
+  traj.points.pop_back();
+  anglast = point_tmp.positions;
+
+  #ifdef sim_exp
+  double tmp1;
+  tmp1 = anglast[0];anglast[0] = anglast[2];anglast[2] = tmp1;
+  #endif
+
+  for(size_t i=1;i<traj.points.size();i++)
+  {
+    dis = 0;
+    point_tmp = traj.points.at(traj.points.size()-1);
+    traj.points.pop_back();
+    angnow.clear();
+    angnow = point_tmp.positions;
+
+    #ifdef sim_exp
+    double tmp2;
+    tmp2 = angnow[0];angnow[0] = angnow[2];angnow[2] = tmp2;
+    #endif
+
+    cout<<"[";
+    for(int j=0;j<6;j++)
+    {
+      dis = fabs(angnow[j] - anglast[j]);
+      if(dis>0.2)
+      {
+        status = false;
+      }
+      cout<<anglast[j]<<",";
+    }
+    cout<<"]"<<endl;
+    anglast.clear();
+    anglast = angnow;
+  }
+  return status;
 }
